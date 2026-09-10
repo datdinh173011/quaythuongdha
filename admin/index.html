@@ -1,0 +1,420 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin Dashboard - BioAmicus Quay Thưởng</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/admin/admin.css">
+</head>
+<body>
+
+  <!-- MÀN HÌNH ĐĂNG NHẬP ADMIN -->
+  <div id="login-container" class="login-wrapper">
+    <div class="login-card">
+      <div class="login-logo">
+        <h2>🔒 BIOAMICUS ADMIN</h2>
+        <p>Hệ thống Quản trị Quay thưởng Đại lý</p>
+      </div>
+      <form id="login-form">
+        <div class="form-group">
+          <label>Mật khẩu quản trị</label>
+          <input type="password" id="admin-pass-input" placeholder="Nhập mật khẩu..." required autofocus>
+        </div>
+        <p id="login-error" class="error-msg" style="display: none;"></p>
+        <button type="submit" class="btn btn-primary btn-block">ĐĂNG NHẬP</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- GIAO DIỆN CHÍNH ADMIN DASHBOARD -->
+  <div id="admin-app" class="admin-layout" style="display: none;">
+    <!-- SIDEBAR -->
+    <aside class="sidebar">
+      <div class="brand">
+        <span class="brand-badge">BIOAMICUS</span>
+        <h3>Quay Thưởng</h3>
+      </div>
+      <nav class="nav-menu">
+        <button class="nav-item active" onclick="switchTab('agencies')">
+          <span class="nav-icon">🏢</span> Quản Lý Đại Lý
+        </button>
+        <button class="nav-item" onclick="switchTab('prizes')">
+          <span class="nav-icon">🎁</span> Quản Lý Quà Tặng
+        </button>
+        <button class="nav-item" onclick="switchTab('lucky-codes')">
+          <span class="nav-icon">🎫</span> Mã Quay & Serial
+        </button>
+        <button class="nav-item" onclick="switchTab('spins')">
+          <span class="nav-icon">🎰</span> Lượt Quay & Google Sheet
+        </button>
+        <button class="nav-item" onclick="switchTab('settings')">
+          <span class="nav-icon">⚙️</span> Cài Đặt & Hướng Dẫn
+        </button>
+      </nav>
+      <div class="sidebar-footer">
+        <a href="/" target="_blank" class="btn btn-outline btn-sm btn-block">🌐 Xem Web Quay Thưởng</a>
+        <button onclick="handleLogout()" class="btn btn-danger-outline btn-sm btn-block mt-2">🚪 Đăng Xuất</button>
+      </div>
+    </aside>
+
+    <!-- MAIN CONTENT -->
+    <main class="main-content">
+      <!-- HEADER -->
+      <header class="topbar">
+        <h2 id="page-title">Quản Lý Đại Lý</h2>
+        <div class="top-stats">
+          <div class="stat-pill"><span class="label">Đại lý:</span> <strong id="stat-agencies">0</strong></div>
+          <div class="stat-pill"><span class="label">Tồn kho quà:</span> <strong id="stat-prizes">0</strong></div>
+          <div class="stat-pill"><span class="label">Lượt quay:</span> <strong id="stat-spins">0</strong></div>
+          <div class="stat-pill sync-pill"><span class="label">Chưa đồng bộ Sheet:</span> <strong id="stat-unsynced" class="badge-unsynced">0</strong></div>
+        </div>
+      </header>
+
+      <!-- TAB 1: ĐẠI LÝ -->
+      <section id="tab-agencies" class="tab-content active">
+        <div class="toolbar">
+          <div class="search-box">
+            <input type="text" id="agency-search-input" placeholder="Tìm theo tên, mã, địa chỉ...">
+            <select id="agency-province-filter">
+              <option value="">-- Tất cả tỉnh thành --</option>
+            </select>
+          </div>
+          <div class="action-buttons">
+            <button class="btn btn-success" onclick="openAgencyModal()"><span class="btn-icon">➕</span> Thêm Đại Lý</button>
+            <label class="btn btn-info upload-btn">
+              <span class="btn-icon">📁</span> Nhập File Excel (.xlsx)
+              <input type="file" id="agency-excel-file" accept=".xlsx, .xls" style="display: none;" onchange="handleImportAgencyExcel(event)">
+            </label>
+            <button class="btn btn-secondary" onclick="downloadSampleAgencyExcel()">📥 Tải Excel Mẫu</button>
+          </div>
+        </div>
+
+        <div class="table-container">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th style="width: 60px;">STT</th>
+                <th style="width: 120px;">Mã Đại Lý</th>
+                <th>Tên Đại Lý</th>
+                <th style="width: 160px;">Tỉnh / Thành</th>
+                <th>Địa Chỉ</th>
+                <th style="width: 140px; text-align: center;">Thao Tác</th>
+              </tr>
+            </thead>
+            <tbody id="agencies-table-body">
+              <tr><td colspan="6" class="text-center">Đang tải danh sách đại lý...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- TAB 2: QUÀ TẶNG -->
+      <section id="tab-prizes" class="tab-content">
+        <div class="toolbar">
+          <div>
+            <p class="section-desc">Tỷ lệ trúng thưởng tự động tính 100% dựa trên <strong>số lượng tồn kho thực tế</strong> của từng quà.</p>
+          </div>
+          <div class="action-buttons">
+            <button class="btn btn-success" onclick="openPrizeModal()"><span class="btn-icon">➕</span> Thêm Quà Mới</button>
+          </div>
+        </div>
+
+        <div class="table-container">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th style="width: 60px;">STT</th>
+                <th style="width: 80px;">Ảnh</th>
+                <th style="width: 120px;">Mã Quà</th>
+                <th style="width: 130px;">Tên Giải</th>
+                <th>Tên Quà Tặng</th>
+                <th style="width: 100px; text-align: center;">Tổng Nhập</th>
+                <th style="width: 100px; text-align: center;">Tồn Kho</th>
+                <th style="width: 100px; text-align: center;">Đã Trúng</th>
+                <th style="width: 150px;">Tỷ Lệ Trúng (% Kho)</th>
+                <th style="width: 140px; text-align: center;">Thao Tác</th>
+              </tr>
+            </thead>
+            <tbody id="prizes-table-body">
+              <tr><td colspan="10" class="text-center">Đang tải danh sách quà tặng...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- TAB 3: MÃ DỰ THƯỞNG & SERIAL -->
+      <section id="tab-lucky-codes" class="tab-content">
+        <div class="toolbar">
+          <div class="search-box">
+            <input type="text" id="code-search-input" placeholder="Tìm theo mã dự thưởng, mã serial...">
+            <select id="code-status-filter">
+              <option value="all">Tất cả trạng thái</option>
+              <option value="unused">Chưa sử dụng (Còn nguyên)</option>
+              <option value="used">Đã quay trúng</option>
+            </select>
+          </div>
+          <div class="action-buttons">
+            <button class="btn btn-success" onclick="openCodeModal()"><span class="btn-icon">➕</span> Thêm Mã Thủ Công</button>
+            <label class="btn btn-info upload-btn">
+              <span class="btn-icon">📁</span> Nhập Mã từ Excel (.xlsx)
+              <input type="file" id="code-excel-file" accept=".xlsx, .xls" style="display: none;" onchange="handleImportCodeExcel(event)">
+            </label>
+            <button class="btn btn-secondary" onclick="downloadSampleCodeExcel()">📥 Tải Excel Mẫu</button>
+          </div>
+        </div>
+
+        <div class="table-container">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th style="width: 60px;">STT</th>
+                <th style="width: 180px;">Mã Dự Thưởng</th>
+                <th style="width: 180px;">Số Serial</th>
+                <th style="width: 150px; text-align: center;">Trạng Thái</th>
+                <th>Thời Gian Sử Dụng</th>
+                <th style="width: 100px; text-align: center;">Thao Tác</th>
+              </tr>
+            </thead>
+            <tbody id="codes-table-body">
+              <tr><td colspan="6" class="text-center">Đang tải danh sách mã...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- TAB 4: LƯỢT QUAY & GOOGLE SHEET -->
+      <section id="tab-spins" class="tab-content">
+        <div class="sync-banner">
+          <div class="sync-info">
+            <h4>🔄 Đồng bộ Google Sheets tự động</h4>
+            <p>Hệ thống tự động đồng bộ các lượt quay mới lên Google Sheet <strong>định kỳ 2 phút/lần</strong>.</p>
+          </div>
+          <div class="sync-actions">
+            <button class="btn btn-warning" id="btn-sync-now" onclick="triggerManualSync()">
+              <span class="btn-icon">⚡</span> ĐỒNG BỘ NGAY BÂY GIỜ
+            </button>
+            <button class="btn btn-success" onclick="exportSpinsExcel()">
+              <span class="btn-icon">📊</span> XUẤT FILE EXCEL BÁO CÁO
+            </button>
+          </div>
+        </div>
+
+        <div class="toolbar">
+          <div class="search-box">
+            <input type="text" id="spin-search-input" placeholder="Tìm theo SĐT, Mã dự thưởng, Đại lý, Tên chủ...">
+            <select id="spin-sync-filter">
+              <option value="all">Tất cả trạng thái đồng bộ</option>
+              <option value="1">Đã đồng bộ Google Sheet</option>
+              <option value="0">Chưa đồng bộ Google Sheet</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="table-container">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th style="width: 130px;">Thời Gian</th>
+                <th style="width: 110px;">Mã ĐL</th>
+                <th>Tên Đại Lý</th>
+                <th style="width: 120px;">Tỉnh/Thành</th>
+                <th>Chủ ĐL / SĐT</th>
+                <th>Địa Chỉ</th>
+                <th style="width: 130px;">Mã Cào & Serial</th>
+                <th style="width: 180px;">Quà Trúng</th>
+                <th style="width: 120px; text-align: center;">Google Sheet</th>
+                <th style="width: 110px; text-align: center;">Thao Tác</th>
+              </tr>
+            </thead>
+            <tbody id="spins-table-body">
+              <tr><td colspan="10" class="text-center">Đang tải lịch sử quay...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- TAB 5: CÀI ĐẶT & HƯỚNG DẪN GOOGLE SHEET -->
+      <section id="tab-settings" class="tab-content">
+        <div class="card-box">
+          <h3>🔗 Cấu Hình Webhook Google Sheet</h3>
+          <p class="text-muted">Để đồng bộ tự động 2 phút/lần lên Google Sheet của bạn, hãy nhập URL Webhook (Google Apps Script Web App URL) vào ô bên dưới:</p>
+          <div class="form-group mt-3">
+            <label>Google Apps Script Webhook URL:</label>
+            <input type="url" id="setting-webhook-url" placeholder="https://script.google.com/macros/s/.../exec">
+          </div>
+          <button class="btn btn-primary" onclick="saveWebhookSetting()">Lưu Cấu Hình Webhook</button>
+        </div>
+
+        <div class="card-box mt-4">
+          <h3>📋 Hướng Dẫn 3 Bước Tạo Webhook Trên Google Sheets (Chỉ mất 2 phút)</h3>
+          <ol class="setup-steps">
+            <li>Mở Google Sheet của bạn &rarr; Chọn menu <strong>Tiện ích mở rộng (Extensions)</strong> &rarr; Chọn <strong>Apps Script</strong>.</li>
+            <li>Xóa toàn bộ mã cũ và dán đoạn mã Google Apps Script mẫu bên dưới vào.</li>
+            <li>Bấm nút <strong>Triển khai (Deploy)</strong> &rarr; Chọn <strong>Tùy chọn triển khai mới (New deployment)</strong>:
+              <ul>
+                <li>Chọn loại: <strong>Ứng dụng web (Web app)</strong></li>
+                <li>Ai có quyền truy cập (Who has access): <strong>Bất kỳ ai (Anyone)</strong></li>
+              </ul>
+            </li>
+            <li>Copy URL web app vừa nhận được và dán vào ô bên trên &rarr; Bấm <strong>Lưu Cấu Hình</strong>!</li>
+          </ol>
+          <div class="code-box">
+            <button class="btn-copy" onclick="copyScriptCode()">Sao chép mã Apps Script</button>
+            <pre id="apps-script-code">
+function doPost(e) {
+  try {
+    var sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
+    var payload = JSON.parse(e.postData.contents);
+    var spins = payload.data || [];
+    
+    // Nếu trang tính còn trống, tạo dòng tiêu đề (Header)
+    if (sheet.getLastRow() === 0) {
+      sheet.appendRow([
+        "ID", "Thời Gian", "Mã Đại Lý", "Tên Đại Lý", "Tỉnh Thành", 
+        "Chủ Đại Lý", "Số Điện Thoại", "Địa Chỉ", "Mã Dự Thưởng", 
+        "Số Serial", "Phần Quà Trúng", "Thời Gian Đồng Bộ"
+      ]);
+    }
+    
+    // Thêm các dòng dữ liệu quay thưởng mới
+    for (var i = 0; i < spins.length; i++) {
+      var s = spins[i];
+      sheet.appendRow([
+        s.id, s.spin_time, s.agency_code, s.agency_name, s.province,
+        s.owner_name, s.phone, s.address, s.entry_code,
+        s.serial_number, s.prize_name, new Date()
+      ]);
+    }
+    
+    return ContentService.createTextOutput(JSON.stringify({ status: "success", count: spins.length }))
+      .setMimeType(ContentService.MimeType.JSON);
+  } catch (error) {
+    return ContentService.createTextOutput(JSON.stringify({ status: "error", message: error.toString() }))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+}
+            </pre>
+          </div>
+        </div>
+
+        <div class="card-box mt-4">
+          <h3>🔐 Đổi Mật Khẩu Đăng Nhập Quản Trị</h3>
+          <div class="form-group">
+            <label>Mật khẩu mới:</label>
+            <input type="password" id="setting-new-password" placeholder="Nhập mật khẩu mới...">
+          </div>
+          <button class="btn btn-warning" onclick="changeAdminPassword()">Đổi Mật Khẩu</button>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <!-- MODAL: THÊM / SỬA ĐẠI LÝ -->
+  <div id="agency-modal" class="modal-backdrop">
+    <div class="modal-box">
+      <div class="modal-title">
+        <h3 id="agency-modal-title">Thêm Đại Lý Mới</h3>
+        <button class="close-btn" onclick="closeAgencyModal()">&times;</button>
+      </div>
+      <form id="agency-form" onsubmit="handleSaveAgency(event)">
+        <input type="hidden" id="agency-edit-id">
+        <div class="form-group">
+          <label>Mã Đại Lý (Bỏ trống sẽ tự sinh mã):</label>
+          <input type="text" id="agency-form-code" placeholder="VD: DL001">
+        </div>
+        <div class="form-group">
+          <label>Tên Đại Lý: <span class="required">*</span></label>
+          <input type="text" id="agency-form-name" placeholder="VD: Đại lý Phương Nam" required>
+        </div>
+        <div class="form-group">
+          <label>Tỉnh / Thành Phố: <span class="required">*</span></label>
+          <input type="text" id="agency-form-province" placeholder="VD: Hà Nội, TP.HCM..." required>
+        </div>
+        <div class="form-group">
+          <label>Địa Chỉ Cụ Thể: <span class="required">*</span></label>
+          <input type="text" id="agency-form-address" placeholder="VD: 123 Đường Nguyễn Trãi..." required>
+        </div>
+        <div class="modal-actions">
+          <button type="button" class="btn btn-secondary" onclick="closeAgencyModal()">Hủy</button>
+          <button type="submit" class="btn btn-primary">Lưu Đại Lý</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL: THÊM / SỬA QUÀ TẶNG -->
+  <div id="prize-modal" class="modal-backdrop">
+    <div class="modal-box">
+      <div class="modal-title">
+        <h3 id="prize-modal-title">Thêm Quà Tặng Mới</h3>
+        <button class="close-btn" onclick="closePrizeModal()">&times;</button>
+      </div>
+      <form id="prize-form" onsubmit="handleSavePrize(event)">
+        <input type="hidden" id="prize-edit-id">
+        <div class="form-group">
+          <label>Mã Quà: <span class="required">*</span></label>
+          <input type="text" id="prize-form-code" placeholder="VD: GIAI_NHAT" required>
+        </div>
+        <div class="form-group">
+          <label>Tên Giải (Giải Nhất, Giải Nhì...): <span class="required">*</span></label>
+          <input type="text" id="prize-form-tier" placeholder="VD: GIẢI NHẤT" required>
+        </div>
+        <div class="form-group">
+          <label>Tên Quà Tặng: <span class="required">*</span></label>
+          <input type="text" id="prize-form-name" placeholder="VD: 0,5 chỉ vàng 999" required>
+        </div>
+        <div class="form-row">
+          <div class="form-group col">
+            <label>Tổng Số Lượng Ban Đầu: <span class="required">*</span></label>
+            <input type="number" id="prize-form-total" min="0" value="10" required>
+          </div>
+          <div class="form-group col" id="prize-remain-group" style="display: none;">
+            <label>Số Lượng Tồn Hiện Tại:</label>
+            <input type="number" id="prize-form-remain" min="0">
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Ảnh Quà Tặng (Chọn file tải lên hoặc điền link ảnh):</label>
+          <input type="file" id="prize-form-file" accept="image/*">
+          <input type="text" id="prize-form-url" class="mt-1" placeholder="Hoặc dán URL ảnh tại đây: /img/...">
+        </div>
+        <div class="modal-actions">
+          <button type="button" class="btn btn-secondary" onclick="closePrizeModal()">Hủy</button>
+          <button type="submit" class="btn btn-primary">Lưu Quà Tặng</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL: THÊM MÃ DỰ THƯỞNG -->
+  <div id="code-modal" class="modal-backdrop">
+    <div class="modal-box">
+      <div class="modal-title">
+        <h3>Thêm Mã Dự Thưởng & Serial</h3>
+        <button class="close-btn" onclick="closeCodeModal()">&times;</button>
+      </div>
+      <form id="code-form" onsubmit="handleSaveCode(event)">
+        <div class="form-group">
+          <label>Mã Dự Thưởng (Mã Cào): <span class="required">*</span></label>
+          <input type="text" id="code-form-code" placeholder="VD: BIO1001" required>
+        </div>
+        <div class="form-group">
+          <label>Số Serial Thẻ Cào:</label>
+          <input type="text" id="code-form-serial" placeholder="VD: SR-2026-1001">
+        </div>
+        <div class="modal-actions">
+          <button type="button" class="btn btn-secondary" onclick="closeCodeModal()">Hủy</button>
+          <button type="submit" class="btn btn-primary">Lưu Mã</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- SheetJS Library for reading & writing Excel in browser -->
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <script src="/admin/admin.js"></script>
+</body>
+</html>
