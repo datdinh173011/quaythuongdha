@@ -176,6 +176,160 @@ body {
   border-radius: 6px;
 }
 
+.reward-overview {
+  margin: 24px 30px 0;
+  padding: 18px;
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+  background: #ffffff;
+  box-shadow: 0 4px 16px rgba(15, 23, 42, 0.03);
+}
+
+.reward-milestone-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.reward-metrics {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 230px), 1fr));
+  gap: 14px;
+}
+
+.reward-metric {
+  min-width: 0;
+  padding: 18px;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  background: #f8fafc;
+}
+
+.reward-metric-participants {
+  background: #f0f9ff;
+  border-color: #bae6fd;
+}
+
+.reward-metric-label,
+.reward-milestone-heading h4 {
+  font-size: 0.875rem;
+  font-weight: 800;
+  color: #334155;
+}
+
+.reward-milestone-heading > span {
+  font-size: 0.75rem;
+  color: #854d0e;
+  background: #fef3c7;
+  padding: 3px 8px;
+  border-radius: 5px;
+}
+
+.reward-participant-count {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin-top: 10px;
+  color: #0369a1;
+}
+
+.reward-participant-count strong {
+  font-size: 2.25rem;
+  font-weight: 800;
+  line-height: 1.2;
+  overflow-wrap: anywhere;
+}
+
+.reward-participant-count > span {
+  font-size: 0.875rem;
+  font-weight: 700;
+}
+
+.reward-milestone-counts {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+  margin-top: 14px;
+}
+
+.reward-milestone-counts > div + div {
+  padding-left: 16px;
+  border-left: 1px solid #e2e8f0;
+}
+
+.reward-milestone-counts dt {
+  color: #475569;
+  font-size: 0.75rem;
+}
+
+.reward-milestone-counts dt span {
+  color: #64748b;
+}
+
+.reward-milestone-counts dd {
+  margin-top: 4px;
+  color: #0f172a;
+  font-size: 1.75rem;
+  font-weight: 800;
+  line-height: 1.2;
+  overflow-wrap: anywhere;
+}
+
+.reward-metric strong,
+.reward-metric dd {
+  font-variant-numeric: tabular-nums;
+}
+
+.reward-metric p,
+.reward-summary-status {
+  margin-top: 12px;
+  color: #64748b;
+  font-size: 0.75rem;
+  line-height: 1.6;
+}
+
+.reward-summary-status.is-error {
+  color: #b91c1c;
+}
+
+.spin-summary {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 7px;
+  overflow-wrap: anywhere;
+}
+
+.spin-summary-title {
+  color: #0f172a;
+  font-size: 0.9rem;
+  font-weight: 800;
+}
+
+.spin-summary-time,
+.spin-summary-voided {
+  color: #64748b;
+  font-size: 0.75rem;
+  line-height: 1.5;
+}
+
+.spin-summary-voided {
+  color: #991b1b;
+}
+
+@media (max-width: 640px) {
+  .reward-overview {
+    margin: 16px 16px 0;
+    padding: 16px;
+  }
+
+  .reward-metric {
+    padding: 14px;
+  }
+}
+
 .tab-content {
   display: none;
   padding: 24px 30px;

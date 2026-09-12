@@ -9,6 +9,12 @@ function assetUrl(url, fallback = '') {
   return /^\/?(?:img|uploads)\//.test(value) ? `${APP_BASE_PATH}/${value.replace(/^\//, '')}` : value;
 }
 
+function formatSpinTime(value) {
+  if (typeof value !== 'string' || !value.trim()) return '—';
+  const parts = value.match(/^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}:\d{2}:\d{2})(?:\.\d+)?(Z|[+-]\d{2}:\d{2})?$/);
+  return parts ? `${parts[3]}/${parts[2]}/${parts[1]} · ${parts[4]}${parts[5] ? ` ${parts[5]}` : ''}` : value;
+}
+
 // Global State
 let token = localStorage.getItem('admin_token') || '';
 let currentTab = 'agencies';
@@ -138,17 +144,35 @@ function switchTab(tabName) {
 
 // 4. Thống Kê Tổng Quan (Stats)
 async function loadDashboardStats() {
+  const overview = document.querySelector('.reward-overview');
+  const summaryStatus = document.getElementById('reward-summary-status');
+  overview.setAttribute('aria-busy', 'true');
+  summaryStatus.classList.remove('is-error');
+  summaryStatus.textContent = 'Đang tải thống kê…';
   try {
     const res = await apiFetch('/api/admin/stats', { headers: getAuthHeaders() });
     const data = await res.json();
+    if (!res.ok || !data.success || !data.stats) throw new Error('Không tải được thống kê');
     if (data.success && data.stats) {
       document.getElementById('stat-agencies').textContent = data.stats.agencyCount;
       document.getElementById('stat-prizes').textContent = data.stats.prizeStock;
       document.getElementById('stat-spins').textContent = data.stats.totalSpins;
       document.getElementById('stat-unsynced').textContent = data.stats.unsyncedSpins;
+      const formatCount = value => Number.isSafeInteger(value) && value >= 0 ? value.toLocaleString('vi-VN') : '—';
+      document.getElementById('stat-participants').textContent = formatCount(data.stats.participantCount);
+      for (const milestoneNumber of [14, 25]) {
+        const milestone = data.stats.milestones?.find(item => item.milestone === milestoneNumber);
+        document.getElementById(`stat-milestone-${milestoneNumber}-eligible`).textContent = formatCount(milestone?.eligible_count);
+        document.getElementById(`stat-milestone-${milestoneNumber}-gold`).textContent = formatCount(milestone?.gold_count);
+      }
+      summaryStatus.textContent = 'Chỉ tính lượt có hiệu lực · Không bao gồm lượt đã hủy';
     }
   } catch (err) {
+    summaryStatus.textContent = 'Chưa cập nhật được thống kê. Vui lòng tải lại trang để thử lại.';
+    summaryStatus.classList.add('is-error');
     console.error('Lỗi tải stats:', err);
+  } finally {
+    overview.setAttribute('aria-busy', 'false');
   }
 }
 
@@ -347,7 +371,6 @@ async function loadPrizes() {
     tbody.innerHTML = '';
     data.prizes.forEach((p, idx) => {
       const tr = document.createElement('tr');
-      const rateNum = parseFloat(p.win_rate) || 0;
 
       tr.innerHTML = `
         <td style="text-align: center;">${idx + 1}</td>
@@ -360,27 +383,21 @@ async function loadPrizes() {
         <td style="text-align: center;">${p.total_quantity}</td>
         <td style="text-align: center;"><strong style="color: ${p.remaining_quantity > 0 ? '#10b981' : '#ef4444'}; font-size: 1.05rem;">${p.remaining_quantity}</strong></td>
         <td style="text-align: center;">${p.used_quantity}</td>
-        <td>
-          <div class="rate-bar-container">
-            <div class="rate-bar">
-              <div class="rate-bar-fill" style="width: ${rateNum}%;"></div>
-            </div>
-            <strong>${p.win_rate}</strong>
-          </div>
-        </td>
         <td style="text-align: center;">
           <button class="btn btn-secondary btn-sm" onclick='editPrize(${JSON.stringify(p)})'>Sửa</button>
-          <button class="btn btn-danger-outline btn-sm" onclick="deletePrize(${p.id}, '${p.name}')">Xóa</button>
+          ${p.rule_locked ? '<span class="badge badge-info">Khóa mã quà</span>' : `<button class="btn btn-danger-outline btn-sm" onclick="deletePrize(${p.id}, '${p.name}')">Xóa</button>`}
         </td>
       `;
       tbody.appendChild(tr);
     });
   } catch (err) {
-    tbody.innerHTML = '<tr><td colspan="10" class="text-center error-msg">Lỗi tải danh sách quà.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="9" class="text-center error-msg">Lỗi tải danh sách quà.</td></tr>';
   }
 }
 
 function openPrizeModal() {
+  document.getElementById('prize-form-code').readOnly = false;
+  document.getElementById('prize-form-remain').min = '0';
   document.getElementById('prize-modal-title').textContent = 'Thêm Quà Tặng Mới';
   document.getElementById('prize-edit-id').value = '';
   document.getElementById('prize-form-code').value = '';
@@ -394,6 +411,8 @@ function openPrizeModal() {
 }
 
 function editPrize(p) {
+  document.getElementById('prize-form-code').readOnly = Boolean(p.rule_locked);
+  document.getElementById('prize-form-remain').min = String(p.reserved_quantity || 0);
   document.getElementById('prize-modal-title').textContent = 'Chỉnh Sửa Quà Tặng';
   document.getElementById('prize-edit-id').value = p.id;
   document.getElementById('prize-form-code').value = p.code;
@@ -623,11 +642,12 @@ async function loadSpins() {
   const tbody = document.getElementById('spins-table-body');
   const q = document.getElementById('spin-search-input').value.trim();
   const synced = document.getElementById('spin-sync-filter').value;
+  const status = document.getElementById('spin-status-filter').value;
 
   tbody.innerHTML = '<tr><td colspan="10" class="text-center">Đang tải lịch sử quay...</td></tr>';
 
   try {
-    const url = `/api/admin/spins?q=${encodeURIComponent(q)}&synced=${encodeURIComponent(synced)}`;
+    const url = `/api/admin/spins?q=${encodeURIComponent(q)}&synced=${encodeURIComponent(synced)}&status=${encodeURIComponent(status)}`;
     const res = await apiFetch(url, { headers: getAuthHeaders() });
     const data = await res.json();
 
@@ -642,7 +662,14 @@ async function loadSpins() {
       const isSynced = s.is_synced === 1;
 
       tr.innerHTML = `
-        <td style="font-size: 0.85rem; color: #475569;">${s.spin_time}</td>
+        <td>
+          <div class="spin-summary">
+            <strong class="spin-summary-title">Lượt quay thứ ${s.spin_number}</strong>
+            <span class="spin-summary-time">${formatSpinTime(s.spin_time)}</span>
+            <span class="badge ${s.status === 'void' ? 'badge-danger' : 'badge-success'}">${s.status === 'void' ? 'Đã hủy' : 'Đã ghi nhận'}</span>
+            ${s.status === 'void' ? `<span class="spin-summary-voided">Thời điểm hủy: ${formatSpinTime(s.voided_at)}</span>` : ''}
+          </div>
+        </td>
         <td><strong>${s.agency_code || '-'}</strong></td>
         <td><strong>${s.agency_name}</strong></td>
         <td>${s.province}</td>
@@ -667,9 +694,7 @@ async function loadSpins() {
           </span>
         </td>
         <td style="text-align: center;">
-          <button class="btn btn-danger-outline btn-sm" onclick="deleteSpin(${s.id}, '${s.entry_code}', '${s.prize_name}')" title="Xóa lượt quay, hoàn lại mã và kho quà">
-            🗑️ Xóa & Hoàn Mã
-          </button>
+          ${s.canUndo ? `<button class="btn btn-danger-outline btn-sm" onclick="deleteSpin(${s.id})">Hủy lượt cuối</button>` : `<span class="badge badge-info">${s.undoReason === 'SPIN_ALREADY_VOID' ? 'Đã hủy' : s.undoReason === 'NOT_LATEST_SPIN' ? 'Không phải lượt cuối' : 'Không thể hủy'}</span>`}
         </td>
       `;
       tbody.appendChild(tr);
@@ -680,8 +705,8 @@ async function loadSpins() {
 }
 
 // XÓA LƯỢT QUAY & HOÀN LẠI MÃ, HOÀN KHO QUÀ
-async function deleteSpin(id, code, prizeName) {
-  const confirmText = `BẠN CÓ CHẮC CHẮN MUỐN XÓA LƯỢT QUAY NÀY?\n\n- Mã dự thưởng "${code}" sẽ được giải phóng về trạng thái CHƯA SỬ DỤNG (đại lý có thể quay lại).\n- Kho quà tặng "${prizeName}" sẽ được CỘNG LẠI 1 SẢN PHẨM.\n\nNhấn OK để thực hiện.`;
+async function deleteSpin(id) {
+  const confirmText = 'Hủy lượt cuối của SĐT này?\n\nQuà và mã sẽ được hoàn lại, bộ đếm giảm một. Bản ghi vẫn được giữ để đối soát. Quay lại sẽ xét theo dữ liệu hiện tại và có thể nhận kết quả khác.\n\nChỉ xác nhận sau khi đã thu hồi/đối soát quà thực tế đã phát.';
 
   if (confirm(confirmText)) {
     try {

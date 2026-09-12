@@ -2,12 +2,14 @@
 
 Ứng dụng quay thưởng bằng mã dự thưởng, gồm giao diện người tham gia và trang quản trị. Một tiến trình Node.js phục vụ cả giao diện, API và tác vụ đồng bộ Google Sheets; dữ liệu được lưu trong SQLite trên máy chạy ứng dụng.
 
-> **Chưa nên public nguyên trạng.** Server hiện phục vụ toàn bộ thư mục gốc qua static, có nguy cơ lộ database và mã nguồn. Cơ chế xác thực admin cũng chưa phù hợp cho production. Đọc mục **Lưu ý bảo mật và giới hạn hiện tại** trước khi triển khai ra Internet.
+Luật hiện hành: [Luật quay thưởng theo SĐT — phone-v3](docs/luat-quay-thuong.md). [Models và trường dữ liệu](docs/schema.md). SĐT chuẩn hóa là khóa duy nhất, cộng cả lịch sử cũ; không có kỳ thưởng. Lặp lịch 30 lượt, vàng chỉ xét lượt tuyệt đối 14/25, 500k chỉ lượt 8; giới hạn tính cả quà cũ chưa hủy. Giữ nguyên `a < b * 4/3`: nếu b = 0 thì không tự phát vàng. Admin được hủy lượt cuối từng SĐT, kể cả lượt cũ, và quay lại theo luật hiện tại.
+
+> **Cần đánh giá bảo mật trước khi public.** Static đã giới hạn vào tài nguyên giao diện để không lộ database, mã nguồn backend và vị trí trúng. Cơ chế xác thực admin vẫn chưa phù hợp cho production. Đọc mục **Lưu ý bảo mật và giới hạn hiện tại** trước khi triển khai ra Internet.
 
 ## 1. Chức năng
 
 - Chọn tỉnh/thành, đại lý, nhập thông tin người tham gia và mã dự thưởng để quay.
-- Kiểm tra mã tồn tại, chưa sử dụng và kho quà còn hàng. Kết quả được chọn ở backend theo tỷ lệ số lượng quà còn lại.
+- Kiểm tra mã tồn tại, chưa sử dụng và kho quà còn hàng. Backend lặp lịch 30 vị trí theo SĐT, không gộp đại lý; hết vàng tự trả tiền tại hai mốc.
 - Lưu lịch sử, trừ tồn kho và đánh dấu mã đã dùng trong cùng một transaction SQLite.
 - Tra cứu lịch sử quay theo số điện thoại.
 - Quản trị đại lý, giải thưởng/ảnh quà tặng, mã dự thưởng/serial, lịch sử và thống kê.
@@ -40,7 +42,11 @@ quaythuongdha/
 ├── package.json        # Scripts và dependencies Node.js
 ├── package-lock.json   # Phiên bản dependencies được chốt
 ├── server.js           # Entry point backend, API, auth, upload, import/export
-├── database.js         # Mở SQLite, tạo bảng, migration và seed dữ liệu mẫu
+├── database.js         # Mở SQLite, kiểm tra migration; khởi tạo database mới
+├── lottery.js          # Lịch quà theo SĐT, công thức vàng, transaction quay/hủy
+├── lotterySchema.js    # Schema SĐT, chuyển đổi lịch sử và bảo vệ dữ liệu
+├── docs/luat-quay-thuong.md # Luật nghiệp vụ và checklist vận hành
+├── scripts/            # Migration có backup và kiểm chứng database tạm
 ├── syncWorker.js       # Đồng bộ Google Sheets theo lô và theo lịch
 ├── index.html          # Trang quay thưởng và tra cứu
 ├── main.js             # Logic giao diện người tham gia, gọi API
@@ -58,7 +64,7 @@ quaythuongdha/
 
 `.env` là file cấu hình tùy chọn do người triển khai tạo; `node_modules/` được tạo khi cài dependency. File WAL/SHM có thể xuất hiện hoặc biến mất theo vòng đời kết nối SQLite.
 
-Database gồm các bảng `agencies`, `prizes`, `lucky_codes`, `spin_logs` và `settings`. Mật khẩu admin và webhook cấu hình qua giao diện được lưu trong `settings`.
+Database dùng `agencies`, `prizes`, `lucky_codes`, `spin_logs`, `settings`, `phone_participants` và `schema_migrations`. Không có bảng kỳ. Phiên bản luật chỉ dùng đối soát, không chia bộ đếm. Lượt hủy giữ trong `spin_logs` với `status = void`, thời điểm/người hủy và phiên bản; không xóa vật lý.
 
 ## 4. Chạy local
 
@@ -74,6 +80,8 @@ Mở terminal tại thư mục dự án:
 
 ```sh
 npm ci
+# Database cũ: dừng mọi server/worker trước khi migration
+npm run db:migrate
 npm start
 ```
 
@@ -85,7 +93,7 @@ npm start
 
 Không mở trực tiếp `index.html` bằng `file://`: giao diện cần API do Express cung cấp. Sau khi sửa backend, khởi động lại tiến trình; dự án chưa có script tự reload.
 
-> Repo hiện theo dõi cả `data.db`, `data.db-wal`, `data.db-shm` và một số ảnh upload bằng Git. Một bản clone không đồng nghĩa với database trống. Khởi động sẽ chạy logic khởi tạo/migration và có thể tự gửi dữ liệu tới webhook đã lưu trong database. Chỉ dùng bản dữ liệu thử đã được kiểm tra; không thử nghiệm trực tiếp trên dữ liệu vận hành.
+> Repo hiện theo dõi cả `data.db`, `data.db-wal`, `data.db-shm` và một số ảnh upload bằng Git. Một bản clone không đồng nghĩa với database trống. Database cũ chưa chuyển đổi bị chặn khởi động với `DATABASE_MIGRATION_REQUIRED`; server không tự migration dữ liệu cũ. Database mới hoàn toàn được khởi tạo tự động. Sau khi khởi động, worker có thể gửi dữ liệu tới webhook đã lưu trong database. Chỉ dùng bản dữ liệu thử đã được kiểm tra; không thử nghiệm trực tiếp trên dữ liệu vận hành.
 
 ### Biến môi trường
 
@@ -99,6 +107,8 @@ GOOGLE_SHEET_WEBHOOK_URL=
 | Biến | Mặc định | Ý nghĩa |
 | --- | --- | --- |
 | `PORT` | `3000` | Cổng Express lắng nghe |
+| `HOST` | `127.0.0.1` | Địa chỉ bind của Express |
+| `DATABASE_PATH` | `data.db` trong thư mục ứng dụng | File SQLite; nên dùng đường dẫn tuyệt đối, dùng chung cho server và lệnh kích hoạt |
 | `GOOGLE_SHEET_WEBHOOK_URL` | Không có giá trị môi trường | URL webhook; khi có giá trị không rỗng sẽ được ưu tiên hơn cấu hình trong Admin |
 
 Để webhook môi trường trống **không tắt đồng bộ** nếu database đã có URL. Muốn không đồng bộ trên môi trường thử, cần bảo đảm cả biến môi trường và giá trị webhook trong `settings` đều trống trước khi khởi động. Không dùng bản database production để thử lần đầu.
@@ -109,9 +119,9 @@ Code hiện **không hỗ trợ** biến môi trường cấu hình mật khẩu
 
 ## 5. Khởi tạo và sử dụng Admin
 
-Khi server khởi động, `database.js` tự tạo các bảng còn thiếu, bổ sung cột `prize_tier` cho database cũ và cập nhật một số dữ liệu giải mẫu. Không có lệnh migration riêng.
+Database cũ cần chạy riêng `npm run db:migrate` khi server/worker đã dừng. Server không tự chuyển đổi lịch sử, không seed lại database đã có schema sẵn sàng. Chỉ database mới hoàn toàn mới được khởi tạo tự động.
 
-Các bảng đại lý, giải thưởng và mã dự thưởng được seed độc lập khi bảng tương ứng rỗng: 7 đại lý, 4 loại giải và 30 mã `BIO001`–`BIO030` với serial `SR-2026-001`–`SR-2026-030`. Điều kiện này được kiểm tra mỗi lần khởi động, không chỉ lần cài đầu tiên. Dữ liệu mẫu không phải cấu hình chương trình chính thức.
+Khi khởi tạo database mới, các bảng danh mục được seed: 7 đại lý, 6 mã quà và 30 mã `BIO001`–`BIO030` với serial `SR-2026-001`–`SR-2026-030`. Dữ liệu mẫu không phải cấu hình chương trình chính thức. Database đã migration giữ nguyên danh mục/kho/mã, không tự bổ sung mẫu khi restart.
 
 1. Mở `/admin/` và đăng nhập bằng mật khẩu admin hiện tại. Khi setting chưa tồn tại, code khởi tạo mật khẩu mặc định **`bioamicus2026`**; database có sẵn có thể đã đổi mật khẩu.
 2. Vào **Cài đặt**, đổi mật khẩu ngay. Không xóa database để khôi phục mật khẩu vì sẽ làm mất dữ liệu nghiệp vụ.
@@ -148,11 +158,11 @@ Import đại lý cập nhật thông tin khi trùng mã đại lý; import mã 
 
 - Worker chạy trong tiến trình Express, lần đầu sau **15 giây**, sau đó theo timer **2 phút/lần**. Không có dịch vụ worker riêng cần khởi động.
 - Mỗi lần lấy tối đa **100** lượt chưa đồng bộ, theo ID tăng dần; phần còn lại chờ lần đồng bộ tiếp theo.
-- Gửi POST JSON có dạng `{ "action": "sync_spins", "data": [...] }`, với `data` là các bản ghi `spin_logs` chưa đồng bộ.
-- Khi request được coi là thành công, worker cập nhật `is_synced` và `synced_at` trong SQLite. Lỗi mạng hoặc HTTP không thành công sẽ giữ bản ghi để thử lại lần sau.
-- Mẫu Apps Script ghi dữ liệu vào sheet đang active và tạo tiêu đề nếu sheet trống.
+- Gửi POST JSON `{ "action": "sync_spins", "protocol": "spin-record-v2", "data": [...] }`, gồm trạng thái và `record_version`.
+- Worker chỉ cập nhật `is_synced`/`synced_at` khi HTTP/JSON thành công và nhận đủ xác nhận đúng ID/phiên bản; cập nhật có điều kiện trên phiên bản hiện tại để tránh phản hồi cũ đánh dấu lượt vừa hủy.
+- [Mẫu Apps Script](docs/google-sheets-sync.gs) cập nhật theo ID, bỏ qua phiên bản cũ, chống trùng và khóa cập nhật. Lượt hủy cập nhật dòng cũ, lượt quay lại tạo dòng ID mới.
 
-**Giới hạn quan trọng:** worker chỉ kiểm tra HTTP status, không kiểm tra trường `status` trong JSON trả về; phản hồi HTTP thành công nhưng JSON báo lỗi, hoặc không phải JSON, vẫn có thể khiến dữ liệu bị đánh dấu đã đồng bộ. Worker chưa có khóa chống chạy chồng; mẫu Apps Script chỉ append, chưa chống trùng theo ID. Retry sau lỗi hoặc bấm đồng bộ khi timer đang chạy có thể tạo dòng trùng. Đây chưa phải cơ chế đồng bộ bảo đảm mỗi bản ghi chỉ được ghi đúng một lần.
+**Cần cập nhật Apps Script trước khi chạy v2.** Script cũ chỉ append không đáp ứng giao thức và sẽ không được đánh dấu đồng bộ. Sao lưu Sheet, xử lý ID trùng/bố cục tùy chỉnh trước khi triển khai mẫu mới. Không dùng chung Sheet cho các database độc lập có ID trùng. Worker gộp các lời gọi đồng thời trong một tiến trình; bản ghi lỗi vẫn chờ retry. Xem chi tiết [đồng bộ và hủy lượt](docs/luat-quay-thuong.md).
 
 ## 7. Deployment tổng quát
 
@@ -176,7 +186,7 @@ Repo chưa có Dockerfile, Compose, cấu hình process manager, reverse proxy h
 
 4. Thiết lập `.env` hoặc biến môi trường của dịch vụ, quyền ghi cho thư mục ứng dụng và `uploads/`. Nếu dùng thư mục release mới, phải có phương án đưa database và upload bền vững vào đúng các đường dẫn cố định của code.
 5. Cấu hình công cụ quản lý tiến trình của nền tảng chạy `npm start` hoặc `node server.js`, working directory là thư mục ứng dụng, một instance, tự restart khi lỗi/khởi động máy và thu thập stdout/stderr.
-6. Đặt reverse proxy có HTTPS phía trước, chuyển tiếp các đường dẫn giao diện và `/api/` tới cổng Node.js. Bảo vệ cổng Node.js bằng firewall/mạng nội bộ; code hiện không giới hạn bind chỉ ở localhost. Có reverse proxy **không tự khắc phục** lỗi static phục vụ thư mục gốc.
+6. Đặt reverse proxy có HTTPS phía trước, chuyển tiếp các đường dẫn giao diện và `/api/` tới cổng Node.js. Bảo vệ cổng Node.js bằng firewall/mạng nội bộ; mặc định bind `127.0.0.1`, có thể cấu hình `HOST`. Không cấu hình proxy phục vụ toàn bộ thư mục dự án làm static.
 7. Đổi mật khẩu admin, kiểm tra dữ liệu chương trình và webhook đúng môi trường; thực hiện checklist kiểm tra trước khi mở truy cập.
 
 ### Dữ liệu bền vững, backup và cập nhật
@@ -194,18 +204,20 @@ Các phát hiện dưới đây dựa trên review source; README này **không 
 
 | Phát hiện | Ảnh hưởng và việc cần làm trước production |
 | --- | --- |
-| `express.static(__dirname)` phục vụ thư mục gốc | Các file như `/data.db`, `/data.db-wal`, `/server.js` có thể tải trực tiếp. Cần chỉ cho phép phục vụ tài nguyên công khai; không đặt database, source backend hay backup trong vùng static |
+| Tài nguyên static được giới hạn | Chỉ phục vụ trang chủ, JS/CSS giao diện và thư mục `img`, `uploads`, `admin`. Không đặt database/source backend/backup trong các thư mục công khai hoặc mở lại static thư mục gốc ở reverse proxy |
 | Mật khẩu admin mặc định được hardcode; lưu dạng rõ trong SQLite | Đổi mật khẩu là bước tối thiểu, chưa đủ. Cần thiết kế lưu mật khẩu dạng hash và xác thực phù hợp |
 | Token admin chính là mật khẩu và được frontend lưu trong `localStorage` | Không có session/token độc lập có hạn dùng; lộ token cũng là lộ mật khẩu. Cần rà soát cơ chế phiên và bảo vệ giao diện admin |
 | Database và WAL/SHM đang được Git theo dõi | Không coi clone là dữ liệu sạch; cần tách dữ liệu runtime khỏi source, đánh giá dữ liệu đã nằm trong lịch sử Git và không đưa dữ liệu thật vào repo |
-| Webhook mẫu dùng truy cập Anyone, không có xác thực hay chống trùng | Người có URL có thể gửi dữ liệu; cần bổ sung kiểm soát truy cập và chống trùng trước khi dùng dữ liệu thật |
-| Worker bỏ qua trạng thái lỗi trong JSON phản hồi | Có thể đánh dấu đã đồng bộ dù sheet chưa được cập nhật; cần kiểm tra kết quả nghiệp vụ trước khi cập nhật trạng thái |
+| Webhook mẫu dùng truy cập Anyone, chưa có xác thực người gửi | Đã chống trùng theo ID/phiên bản nhưng người có URL vẫn có thể gửi dữ liệu; cần bổ sung kiểm soát truy cập trước khi dùng dữ liệu thật |
+| Hủy lượt hoàn kho trên phần mềm | Admin phải thu hồi/đối soát quà thực tế trước khi xác nhận. Tài khoản admin dùng chung chỉ được ghi nhận là `admin`, không phân biệt nhân viên |
 
 Trước production cũng cần rà soát quyền truy cập lịch sử theo số điện thoại, giới hạn đăng nhập/request, kiểm tra file upload và bảo vệ thông tin người tham gia. Không coi thay đổi cấu hình HTTPS hoặc mật khẩu là đã giải quyết toàn bộ các vấn đề này.
 
 ## 9. Kiểm tra sau cài đặt
 
-Hiện **chưa có bộ kiểm thử tự động**. `npm test` chỉ in `Error: no test specified` và thoát với mã lỗi 1; đây không phải lệnh kiểm tra sức khỏe ứng dụng. Chưa có endpoint health check riêng.
+Chạy `npm run verify:lottery` để kiểm chứng luật quay, rollback, migration/backup, nhiều kết nối SQLite đồng thời, middleware API, Excel và payload webhook. Kịch bản tự tạo/xóa database tạm, không truy cập database vận hành, không mở cổng mạng và không gọi webhook thật. `npm test` vẫn là placeholder; chưa có endpoint health check riêng.
+
+Trước khi nhận quay trên dữ liệu vận hành, dừng mọi server/worker và chạy `npm run db:migrate` với cùng `DATABASE_PATH`: backup nhất quán ngoài dự án rồi chuyển đổi lịch sử theo SĐT. Giữ quà/kho/mã, cộng lượt cũ; chạy lại không reset. Có dữ liệu kỳ/nhóm hoặc vàng giữ chỗ thì dừng để đối soát. Cập nhật Apps Script trước khi bật worker. Xem [hướng dẫn migration và luật đầy đủ](docs/luat-quay-thuong.md).
 
 Chỉ thực hiện checklist sau trên **dữ liệu thử**, với webhook thử hoặc không có webhook; một lần quay thành công sẽ thay đổi kho quà, mã và lịch sử:
 
