@@ -73,6 +73,33 @@
         </div>
       </header>
 
+      <section class="reward-overview" aria-label="Thống kê người tham gia và các mốc thưởng" aria-busy="true">
+        <div class="reward-metrics">
+          <div class="reward-metric reward-metric-participants">
+            <span class="reward-metric-label">Người tham gia</span>
+            <div class="reward-participant-count"><strong id="stat-participants">—</strong><span>SĐT</span></div>
+            <p>Có ít nhất một lượt quay hiệu lực</p>
+          </div>
+          <div class="reward-metric">
+            <div class="reward-milestone-heading"><h4>Mốc 14</h4><span>Vàng 0,1 chỉ</span></div>
+            <dl class="reward-milestone-counts">
+              <div><dt>Đã đến mốc <span>(a)</span></dt><dd id="stat-milestone-14-eligible">—</dd></div>
+              <div><dt>Đã trúng vàng <span>(b)</span></dt><dd id="stat-milestone-14-gold">—</dd></div>
+            </dl>
+            <p>Tính trên SĐT đã hoàn thành lượt 14</p>
+          </div>
+          <div class="reward-metric">
+            <div class="reward-milestone-heading"><h4>Mốc 25</h4><span>Vàng 0,5 chỉ</span></div>
+            <dl class="reward-milestone-counts">
+              <div><dt>Đủ điều kiện <span>(a)</span></dt><dd id="stat-milestone-25-eligible">—</dd></div>
+              <div><dt>Đã trúng vàng <span>(b)</span></dt><dd id="stat-milestone-25-gold">—</dd></div>
+            </dl>
+            <p>Đã hoàn thành lượt 25 và nhận 50k ở lượt 14</p>
+          </div>
+        </div>
+        <p id="reward-summary-status" class="reward-summary-status" role="status">Đang tải thống kê…</p>
+      </section>
+
       <!-- TAB 1: ĐẠI LÝ -->
       <section id="tab-agencies" class="tab-content active">
         <div class="toolbar">
@@ -114,9 +141,6 @@
       <!-- TAB 2: QUÀ TẶNG -->
       <section id="tab-prizes" class="tab-content">
         <div class="toolbar">
-          <div>
-            <p class="section-desc">Tỷ lệ trúng thưởng tự động tính 100% dựa trên <strong>số lượng tồn kho thực tế</strong> của từng quà.</p>
-          </div>
           <div class="action-buttons">
             <button class="btn btn-success" onclick="openPrizeModal()"><span class="btn-icon">➕</span> Thêm Quà Mới</button>
           </div>
@@ -134,12 +158,11 @@
                 <th style="width: 100px; text-align: center;">Tổng Nhập</th>
                 <th style="width: 100px; text-align: center;">Tồn Kho</th>
                 <th style="width: 100px; text-align: center;">Đã Trúng</th>
-                <th style="width: 150px;">Tỷ Lệ Trúng (% Kho)</th>
                 <th style="width: 140px; text-align: center;">Thao Tác</th>
               </tr>
             </thead>
             <tbody id="prizes-table-body">
-              <tr><td colspan="10" class="text-center">Đang tải danh sách quà tặng...</td></tr>
+              <tr><td colspan="9" class="text-center">Đang tải danh sách quà tặng...</td></tr>
             </tbody>
           </table>
         </div>
@@ -210,6 +233,11 @@
               <option value="1">Đã đồng bộ Google Sheet</option>
               <option value="0">Chưa đồng bộ Google Sheet</option>
             </select>
+            <select id="spin-status-filter" onchange="loadSpins()">
+              <option value="all">Tất cả lượt, gồm đã hủy</option>
+              <option value="active">Có hiệu lực</option>
+              <option value="void">Đã hủy</option>
+            </select>
           </div>
         </div>
 
@@ -217,7 +245,7 @@
           <table class="data-table">
             <thead>
               <tr>
-                <th style="width: 130px;">Thời Gian</th>
+                <th style="width: 160px;">Thời Gian / Lượt</th>
                 <th style="width: 110px;">Mã ĐL</th>
                 <th>Tên Đại Lý</th>
                 <th style="width: 120px;">Tỉnh/Thành</th>
@@ -264,36 +292,80 @@
           <div class="code-box">
             <button class="btn-copy" onclick="copyScriptCode()">Sao chép mã Apps Script</button>
             <pre id="apps-script-code">
-function doPost(e) {
+function doPost(request) {
+  var lock = LockService.getScriptLock();
+  var acquired = false;
   try {
+    var payload = JSON.parse(request.postData.contents);
+    if (payload.action !== 'sync_spins' || payload.protocol !== 'spin-record-v2' || !Array.isArray(payload.data)) {
+      throw new Error('Unsupported sync protocol');
+    }
+    var seen = {};
+    payload.data.forEach(function(record) {
+      if (!Number.isSafeInteger(record.id) || record.id < 1 || seen[record.id]
+        || !Number.isSafeInteger(record.record_version) || record.record_version < 1
+        || ['active', 'void'].indexOf(record.status) === -1) {
+        throw new Error('Invalid record identity, version or status');
+      }
+      seen[record.id] = true;
+    });
+    acquired = lock.tryLock(10000);
+    if (!acquired) throw new Error('Sync busy; retry later');
     var sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
-    var payload = JSON.parse(e.postData.contents);
-    var spins = payload.data || [];
-    
-    // Nếu trang tính còn trống, tạo dòng tiêu đề (Header)
-    if (sheet.getLastRow() === 0) {
-      sheet.appendRow([
-        "ID", "Thời Gian", "Mã Đại Lý", "Tên Đại Lý", "Tỉnh Thành", 
-        "Chủ Đại Lý", "Số Điện Thoại", "Địa Chỉ", "Mã Dự Thưởng", 
-        "Số Serial", "Phần Quà Trúng", "Thời Gian Đồng Bộ"
-      ]);
+    var headers = [
+      'ID', 'Thời Gian', 'Mã Đại Lý', 'Tên Đại Lý', 'Tỉnh Thành', 'Chủ Đại Lý',
+      'Số Điện Thoại', 'Địa Chỉ', 'Mã Dự Thưởng', 'Số Serial', 'Phần Quà Trúng', 'Thời Gian Đồng Bộ',
+      'Kỳ Thưởng (Không Sử Dụng)', 'Lượt Tuyệt Đối', 'Phiên Bản Luật', 'Mã Quà', 'Lý Do Nhận Giải',
+      'Trạng Thái', 'Thời Điểm Hủy', 'Người Hủy', 'Phiên Bản Bản Ghi',
+      'Vòng', 'Vị Trí Trong Vòng', 'a Trước Lượt', 'b Trước Lượt'
+    ];
+    var existing = sheet.getLastRow() ? sheet.getDataRange().getValues() : [];
+    if (existing.length) {
+      existing[0].forEach(function(header, index) {
+        var legacyHeader = (index === 12 && header === 'Kỳ Thưởng') || (index === 13 && header === 'Lượt Trong Kỳ');
+        if (header !== '' && header !== headers[index] && !legacyHeader) throw new Error('Custom sheet headers require manual migration');
+      });
     }
-    
-    // Thêm các dòng dữ liệu quay thưởng mới
-    for (var i = 0; i < spins.length; i++) {
-      var s = spins[i];
-      sheet.appendRow([
-        s.id, s.spin_time, s.agency_code, s.agency_name, s.province,
-        s.owner_name, s.phone, s.address, s.entry_code,
-        s.serial_number, s.prize_name, new Date()
-      ]);
+    var rowsById = {};
+    for (var rowIndex = 1; rowIndex < existing.length; rowIndex++) {
+      var existingId = existing[rowIndex][0];
+      if (existingId === '') continue;
+      if (rowsById[existingId]) throw new Error('Duplicate sheet IDs require reconciliation');
+      rowsById[existingId] = { row: rowIndex + 1, version: Number(existing[rowIndex][20]) || 1 };
     }
-    
-    return ContentService.createTextOutput(JSON.stringify({ status: "success", count: spins.length }))
-      .setMimeType(ContentService.MimeType.JSON);
+    sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
+    var acknowledgements = [];
+    payload.data.forEach(function(record) {
+      var saved = rowsById[record.id];
+      if (!saved || record.record_version > saved.version) {
+        var values = [
+          record.id, record.spin_time, record.agency_code, record.agency_name, record.province,
+          record.owner_name, record.phone, record.address, record.entry_code, record.serial_number,
+          record.prize_name, new Date(), '', record.spin_number || '',
+          record.rule_version, record.prize_code, record.decision_reason, record.status,
+          record.voided_at, record.voided_by, record.record_version, record.cycle_number || '',
+          record.position_in_cycle || '', record.decision_a, record.decision_b
+        ].map(function(value) {
+          if (value === null || value === undefined) return '';
+          return typeof value === 'string' && /^[=+@-]/.test(value) ? "'" + value : value;
+        });
+        var destination = saved ? saved.row : sheet.getLastRow() + 1;
+        sheet.getRange(destination, 1, 1, headers.length).setValues([values]);
+        saved = { row: destination, version: record.record_version };
+        rowsById[record.id] = saved;
+      }
+      acknowledgements.push({ id: record.id, record_version: saved.version });
+    });
+    SpreadsheetApp.flush();
+    return ContentService.createTextOutput(JSON.stringify({
+      status: 'success', protocol: 'spin-record-v2', acknowledgements: acknowledgements
+    })).setMimeType(ContentService.MimeType.JSON);
   } catch (error) {
-    return ContentService.createTextOutput(JSON.stringify({ status: "error", message: error.toString() }))
-      .setMimeType(ContentService.MimeType.JSON);
+    return ContentService.createTextOutput(JSON.stringify({
+      status: 'error', protocol: 'spin-record-v2', message: String(error)
+    })).setMimeType(ContentService.MimeType.JSON);
+  } finally {
+    if (acquired) lock.releaseLock();
   }
 }
             </pre>

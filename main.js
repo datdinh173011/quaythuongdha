@@ -9,6 +9,12 @@ function assetUrl(url, fallback = '') {
   return /^\/?(?:img|uploads)\//.test(value) ? `${APP_BASE_PATH}/${value.replace(/^\//, '')}` : value;
 }
 
+function formatSpinTime(value) {
+  if (typeof value !== 'string' || !value.trim()) return '—';
+  const parts = value.match(/^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}:\d{2}:\d{2})(?:\.\d+)?(Z|[+-]\d{2}:\d{2})?$/);
+  return parts ? `${parts[3]}/${parts[2]}/${parts[1]} · ${parts[4]}${parts[5] ? ` ${parts[5]}` : ''}` : value;
+}
+
 // DOM Elements
 const provinceInput = document.getElementById("province-input");
 const provinceHidden = document.getElementById("province");
@@ -276,7 +282,7 @@ submitForm.addEventListener("submit", async function (event) {
       rewardSerialRow.style.display = 'none';
     }
     
-    rewardTimeText.textContent = result.spinTime;
+    rewardTimeText.textContent = `Lượt quay thứ ${result.spinNumber} · ${formatSpinTime(result.spinTime)}`;
 
     // Mở popup kết quả và bắn pháo hoa Confetti
     openRewardModal();
@@ -327,19 +333,14 @@ searchForm.addEventListener("submit", async function (event) {
       data.history.forEach((item, index) => {
         const tr = document.createElement("tr");
 
-        let timeStr = item.spin_time;
-        try {
-          const d = new Date(item.spin_time);
-          if (!isNaN(d.getTime())) {
-            timeStr = d.toLocaleDateString('vi-VN') + ' ' + d.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
-          }
-        } catch(e) {}
+        const timeStr = formatSpinTime(item.spin_time);
 
         tr.innerHTML = `
           <td style="text-align: center; font-weight: bold; color: #64748b;">${index + 1}</td>
           <td>
             <strong>${item.agency_name}</strong>
             <div style="font-size: 0.8rem; color: #0284c7;">Mã: ${item.entry_code || ''}</div>
+            <div style="font-size: 0.85rem; font-weight: 800;">Lượt quay thứ ${item.spin_number}</div>
           </td>
           <td>
             <div class="prize-cell">

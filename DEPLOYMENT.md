@@ -255,6 +255,8 @@ Nếu Certbot tự sửa server block, rà soát lại hai `location` subpath v�
 
 ## 7. Dữ liệu, backup và cập nhật
 
+Với luật `phone-v3`, dừng toàn bộ server/worker trước khi chạy `npm run db:migrate` bằng tài khoản có quyền database và thư mục home. Dùng cùng `DATABASE_PATH` với service. Lệnh backup nhất quán trước migration, cộng lịch sử cũ vào bộ đếm SĐT, giữ ID/quà/kho/mã; không cần kích hoạt kỳ. Server chặn database cũ chưa migration. Nếu có dữ liệu kỳ/nhóm hoặc vàng giữ chỗ, dừng để đối soát riêng. Chạy lại không reset. Cập nhật [Apps Script](docs/google-sheets-sync.gs) trước khi bật worker: giữ cột 13 tương thích (để trống), đổi cột 14 thành lượt tuyệt đối. Xem [luật và quy trình migration](docs/luat-quay-thuong.md).
+
 Các dữ liệu runtime cần giữ persistent:
 
 - `data.db`
@@ -279,12 +281,12 @@ Khi restore, dừng service, khôi phục một bộ database nhất quán cùng
 
 Nginx/HTTPS không tự khắc phục các vấn đề trong code hiện tại:
 
-- `express.static(__dirname)` có thể làm lộ `data.db`, WAL/SHM và source backend nếu upstream bị truy cập ngoài ý muốn. Cần harden static serving trong code trước production.
+- Static trong code đã giới hạn vào tài nguyên giao diện. Không mở lại toàn bộ thư mục dự án ở reverse proxy; xác nhận không tải được database, WAL/SHM và source backend.
 - Mật khẩu Admin mặc định được hardcode, lưu dạng rõ trong SQLite và dùng trực tiếp làm bearer token. Đổi mật khẩu ngay nhưng vẫn cần thiết kế lại cơ chế xác thực/session.
 - Không để backup, `.env`, database hoặc source trong vùng có thể tải qua web.
 - Chỉ cho phép một process Node.js; giới hạn quyền user service và firewall chỉ mở Nginx ra Internet.
 - `xlsx@0.18.5` có cảnh báo high severity; phiên bản được giữ nguyên theo yêu cầu triển khai này.
-- Worker đồng bộ chưa kiểm tra trạng thái lỗi trong JSON và chưa chống ghi trùng; kiểm tra trực tiếp Google Sheet sau đồng bộ.
+- Worker yêu cầu xác nhận đúng ID/phiên bản theo `spin-record-v2`; Apps Script cũ không đáp ứng. Mẫu mới upsert và chống trùng nhưng webhook vẫn cần kiểm soát truy cập; kiểm tra trực tiếp Sheet sau đồng bộ/hủy lượt.
 
 ## 9. Checklist nghiệm thu
 

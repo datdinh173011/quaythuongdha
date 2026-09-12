@@ -1,79 +1,58 @@
-﻿const db = require('./database');
+const db = require('./database');
 
-async function syncToGoogleSheet() {
-  try {
-    const setting = db.prepare('SELECT value FROM settings WHERE key = ?').get('google_sheet_webhook_url');
-    const webhookUrl = process.env.GOOGLE_SHEET_WEBHOOK_URL || (setting ? setting.value : '');
+function createSheetSync(database, send = (...args) => fetch(...args)) {
+  let inFlight;
 
-    if (!webhookUrl || !webhookUrl.trim()) {
-      // Webhook chưa được cấu hình
-      return { success: false, message: 'Google Sheet Webhook URL chưa được cấu hình trong Cài Đặt Admin hoặc file .env' };
+  async function run() {
+    try {
+      const setting = database.prepare('SELECT value FROM settings WHERE key = ?').get('google_sheet_webhook_url');
+      const webhookUrl = process.env.GOOGLE_SHEET_WEBHOOK_URL || setting?.value || '';
+      if (!webhookUrl.trim()) return { success: false, message: 'Google Sheet Webhook URL chưa được cấu hình.' };
+      const logs = database.prepare('SELECT * FROM spin_logs WHERE is_synced = 0 ORDER BY id ASC LIMIT 100').all();
+      if (logs.length === 0) return { success: true, count: 0, message: 'Không có thay đổi cần đồng bộ.' };
+      const response = await send(webhookUrl.trim(), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'sync_spins', protocol: 'spin-record-v2', data: logs }),
+        signal: AbortSignal.timeout(30000),
+      });
+      if (!response.ok) throw new Error(`Google Webhook trả về HTTP ${response.status}`);
+      const result = await response.json();
+      if (result?.status !== 'success' || result.protocol !== 'spin-record-v2' || !Array.isArray(result.acknowledgements)) {
+        throw new Error('Webhook chưa xác nhận đúng giao thức/phiên bản. Cần cập nhật Apps Script.');
+      }
+      const acknowledged = new Map();
+      for (const item of result.acknowledgements) {
+        if (!Number.isSafeInteger(item.id) || !Number.isSafeInteger(item.record_version) || acknowledged.has(item.id)) {
+          throw new Error('Xác nhận đồng bộ không hợp lệ hoặc trùng ID.');
+        }
+        acknowledged.set(item.id, item.record_version);
+      }
+      if (acknowledged.size !== logs.length || logs.some(log => acknowledged.get(log.id) !== log.record_version)) {
+        throw new Error('Webhook chưa xác nhận đúng phiên bản của mọi bản ghi đã gửi.');
+      }
+      const count = database.transaction(() => {
+        const mark = database.prepare(`UPDATE spin_logs SET is_synced = 1, synced_at = datetime('now', 'localtime')
+          WHERE id = ? AND record_version = ? AND is_synced = 0`);
+        return logs.reduce((total, log) => total + mark.run(log.id, log.record_version).changes, 0);
+      }).immediate();
+      return { success: true, count, message: `Đã đồng bộ ${count} bản ghi đúng phiên bản.` };
+    } catch (error) {
+      return { success: false, error: error.message, message: error.message };
     }
-
-    const unsyncedLogs = db.prepare(`
-      SELECT * FROM spin_logs 
-      WHERE is_synced = 0 
-      ORDER BY id ASC 
-      LIMIT 100
-    `).all();
-
-    if (!unsyncedLogs || unsyncedLogs.length === 0) {
-      return { success: true, count: 0, message: 'Không có lượt quay mới nào cần đồng bộ.' };
-    }
-
-    console.log(`[GoogleSheetSync] Bắt đầu đồng bộ ${unsyncedLogs.length} lượt quay lên Google Sheet...`);
-
-    // Gửi POST request tới Webhook URL (Google Apps Script Webhook)
-    const response = await fetch(webhookUrl.trim(), {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        action: 'sync_spins',
-        data: unsyncedLogs
-      })
-    });
-
-    if (!response.ok) {
-      throw new Error(`Google Webhook trả về lỗi HTTP status ${response.status}`);
-    }
-
-    const resJson = await response.json().catch(() => ({ status: 'success' }));
-
-    // Cập nhật trạng thái đã đồng bộ trong SQLite
-    const ids = unsyncedLogs.map(l => l.id);
-    const placeholders = ids.map(() => '?').join(',');
-    db.prepare(`
-      UPDATE spin_logs 
-      SET is_synced = 1, synced_at = CURRENT_TIMESTAMP 
-      WHERE id IN (${placeholders})
-    `).run(...ids);
-
-    console.log(`[GoogleSheetSync] Đã đồng bộ thành công ${ids.length} lượt quay lên Google Sheet!`);
-    return { success: true, count: ids.length, message: `Đã đồng bộ thành công ${ids.length} lượt quay.` };
-  } catch (error) {
-    console.error('[GoogleSheetSync Error]:', error.message);
-    return { success: false, error: error.message };
   }
+
+  return function sync() {
+    if (!inFlight) inFlight = run().finally(() => { inFlight = undefined; });
+    return inFlight;
+  };
 }
 
-// Bắt đầu background worker chạy mỗi 2 phút (120,000 ms)
+const syncToGoogleSheet = createSheetSync(db);
+
 function startSyncWorker() {
-  const INTERVAL_MS = 2 * 60 * 1000; // 2 phút
-  console.log('[GoogleSheetSync] Khởi chạy worker tự động đồng bộ Google Sheet mỗi 2 phút/lần.');
-  
-  // Chạy lần đầu sau 15 giây khởi động server
-  setTimeout(() => {
-    syncToGoogleSheet();
-  }, 15000);
-
-  setInterval(() => {
-    syncToGoogleSheet();
-  }, INTERVAL_MS);
+  setTimeout(syncToGoogleSheet, 15000);
+  setInterval(syncToGoogleSheet, 120000);
 }
 
-module.exports = {
-  syncToGoogleSheet,
-  startSyncWorker
-};
+module.exports = { createSheetSync, syncToGoogleSheet, startSyncWorker };
