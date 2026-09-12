@@ -60,3 +60,4 @@ node_modules/
 /playwright/.cache/
 /playwright/.auth/
 .npm-cache/*
+.env

@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/admin/admin.css">
+  <link rel="stylesheet" href="./admin.css">
 </head>
 <body>
 
@@ -55,7 +55,7 @@
         </button>
       </nav>
       <div class="sidebar-footer">
-        <a href="/" target="_blank" class="btn btn-outline btn-sm btn-block">🌐 Xem Web Quay Thưởng</a>
+        <a href="/" data-user-app-link target="_blank" class="btn btn-outline btn-sm btn-block">🌐 Xem Web Quay Thưởng</a>
         <button onclick="handleLogout()" class="btn btn-danger-outline btn-sm btn-block mt-2">🚪 Đăng Xuất</button>
       </div>
     </aside>
@@ -415,6 +415,6 @@ function doPost(e) {
 
   <!-- SheetJS Library for reading & writing Excel in browser -->
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-  <script src="/admin/admin.js"></script>
+  <script src="./admin.js"></script>
 </body>
 </html>

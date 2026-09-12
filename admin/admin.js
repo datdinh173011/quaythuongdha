@@ -1,3 +1,14 @@
+const APP_BASE_PATH = /^\/quaythuongdha-admin(?:\/|$)/.test(window.location.pathname) ? '/quaythuongdha-admin' : '';
+
+function apiFetch(endpoint, options) {
+  return window.fetch(APP_BASE_PATH + endpoint, options);
+}
+
+function assetUrl(url, fallback = '') {
+  const value = url || fallback;
+  return /^\/?(?:img|uploads)\//.test(value) ? `${APP_BASE_PATH}/${value.replace(/^\//, '')}` : value;
+}
+
 // Global State
 let token = localStorage.getItem('admin_token') || '';
 let currentTab = 'agencies';
@@ -12,6 +23,10 @@ function getAuthHeaders() {
 
 // 1. Khởi động ứng dụng Admin
 document.addEventListener('DOMContentLoaded', () => {
+  const userAppLink = document.querySelector('[data-user-app-link]');
+  if (userAppLink) {
+    userAppLink.href = APP_BASE_PATH ? '/quaythuongdha/' : '/';
+  }
   if (token) {
     showAdminApp();
   } else {
@@ -48,7 +63,7 @@ async function handleLogin(e) {
   errorMsg.style.display = 'none';
 
   try {
-    const res = await fetch('/api/admin/login', {
+    const res = await apiFetch('/api/admin/login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ password: pass })
@@ -124,7 +139,7 @@ function switchTab(tabName) {
 // 4. Thống Kê Tổng Quan (Stats)
 async function loadDashboardStats() {
   try {
-    const res = await fetch('/api/admin/stats', { headers: getAuthHeaders() });
+    const res = await apiFetch('/api/admin/stats', { headers: getAuthHeaders() });
     const data = await res.json();
     if (data.success && data.stats) {
       document.getElementById('stat-agencies').textContent = data.stats.agencyCount;
@@ -142,7 +157,7 @@ async function loadDashboardStats() {
 ======================================================== */
 async function loadProvincesFilter() {
   try {
-    const res = await fetch('/api/provinces');
+    const res = await apiFetch('/api/provinces');
     const data = await res.json();
     if (data.success && data.provinces) {
       allProvinces = data.provinces;
@@ -166,7 +181,7 @@ async function loadAgencies() {
 
   try {
     const url = `/api/admin/agencies?q=${encodeURIComponent(q)}&province=${encodeURIComponent(province)}`;
-    const res = await fetch(url, { headers: getAuthHeaders() });
+    const res = await apiFetch(url, { headers: getAuthHeaders() });
     const data = await res.json();
 
     if (!data.success || !data.agencies || data.agencies.length === 0) {
@@ -232,7 +247,7 @@ async function handleSaveAgency(e) {
   const method = isEdit ? 'PUT' : 'POST';
 
   try {
-    const res = await fetch(url, {
+    const res = await apiFetch(url, {
       method,
       headers: { ...getAuthHeaders(), 'Content-Type': 'application/json' },
       body: JSON.stringify({ code, name, province, address })
@@ -254,7 +269,7 @@ async function handleSaveAgency(e) {
 async function deleteAgency(id, name) {
   if (confirm(`Bạn có chắc chắn muốn xóa đại lý "${name}"?`)) {
     try {
-      const res = await fetch(`/api/admin/agencies/${id}`, {
+      const res = await apiFetch(`/api/admin/agencies/${id}`, {
         method: 'DELETE',
         headers: getAuthHeaders()
       });
@@ -280,7 +295,7 @@ async function handleImportAgencyExcel(e) {
   formData.append('file', file);
 
   try {
-    const res = await fetch('/api/admin/agencies/import', {
+    const res = await apiFetch('/api/admin/agencies/import', {
       method: 'POST',
       headers: getAuthHeaders(),
       body: formData
@@ -321,7 +336,7 @@ async function loadPrizes() {
   tbody.innerHTML = '<tr><td colspan="9" class="text-center">Đang tải danh sách quà...</td></tr>';
 
   try {
-    const res = await fetch('/api/admin/prizes', { headers: getAuthHeaders() });
+    const res = await apiFetch('/api/admin/prizes', { headers: getAuthHeaders() });
     const data = await res.json();
 
     if (!data.success || !data.prizes || data.prizes.length === 0) {
@@ -337,7 +352,7 @@ async function loadPrizes() {
       tr.innerHTML = `
         <td style="text-align: center;">${idx + 1}</td>
         <td>
-          <img src="${p.image_url || '/img/Artboard 23@2x.png'}" alt="quà" class="table-img">
+          <img src="${assetUrl(p.image_url, '/img/Artboard 23@2x.png')}" alt="quà" class="table-img">
         </td>
         <td><strong>${p.code}</strong></td>
         <td><strong style="color: #f7961d; text-transform: uppercase;">${p.prize_tier || 'GIẢI THƯỞNG'}</strong></td>
@@ -422,7 +437,7 @@ async function handleSavePrize(e) {
   const method = isEdit ? 'PUT' : 'POST';
 
   try {
-    const res = await fetch(url, {
+    const res = await apiFetch(url, {
       method,
       headers: getAuthHeaders(),
       body: formData
@@ -443,7 +458,7 @@ async function handleSavePrize(e) {
 async function deletePrize(id, name) {
   if (confirm(`Bạn có chắc chắn muốn xóa phần quà "${name}"?`)) {
     try {
-      const res = await fetch(`/api/admin/prizes/${id}`, {
+      const res = await apiFetch(`/api/admin/prizes/${id}`, {
         method: 'DELETE',
         headers: getAuthHeaders()
       });
@@ -473,7 +488,7 @@ async function loadCodes() {
 
   try {
     const url = `/api/admin/lucky-codes?q=${encodeURIComponent(q)}&status=${encodeURIComponent(status)}`;
-    const res = await fetch(url, { headers: getAuthHeaders() });
+    const res = await apiFetch(url, { headers: getAuthHeaders() });
     const data = await res.json();
 
     if (!data.success || !data.codes || data.codes.length === 0) {
@@ -522,7 +537,7 @@ async function handleSaveCode(e) {
   const serial_number = document.getElementById('code-form-serial').value.trim();
 
   try {
-    const res = await fetch('/api/admin/lucky-codes', {
+    const res = await apiFetch('/api/admin/lucky-codes', {
       method: 'POST',
       headers: { ...getAuthHeaders(), 'Content-Type': 'application/json' },
       body: JSON.stringify({ code, serial_number })
@@ -543,7 +558,7 @@ async function handleSaveCode(e) {
 async function deleteCode(id, code) {
   if (confirm(`Bạn có chắc muốn xóa mã "${code}"?`)) {
     try {
-      const res = await fetch(`/api/admin/lucky-codes/${id}`, {
+      const res = await apiFetch(`/api/admin/lucky-codes/${id}`, {
         method: 'DELETE',
         headers: getAuthHeaders()
       });
@@ -568,7 +583,7 @@ async function handleImportCodeExcel(e) {
   formData.append('file', file);
 
   try {
-    const res = await fetch('/api/admin/lucky-codes/import', {
+    const res = await apiFetch('/api/admin/lucky-codes/import', {
       method: 'POST',
       headers: getAuthHeaders(),
       body: formData
@@ -613,7 +628,7 @@ async function loadSpins() {
 
   try {
     const url = `/api/admin/spins?q=${encodeURIComponent(q)}&synced=${encodeURIComponent(synced)}`;
-    const res = await fetch(url, { headers: getAuthHeaders() });
+    const res = await apiFetch(url, { headers: getAuthHeaders() });
     const data = await res.json();
 
     if (!data.success || !data.spins || data.spins.length === 0) {
@@ -642,7 +657,7 @@ async function loadSpins() {
         </td>
         <td>
           <div style="display: flex; align-items: center; gap: 8px;">
-            <img src="${s.prize_image || '/img/Artboard 23@2x.png'}" alt="quà" style="width: 28px; height: 28px; border-radius: 4px; object-fit: contain;">
+            <img src="${assetUrl(s.prize_image, '/img/Artboard 23@2x.png')}" alt="quà" style="width: 28px; height: 28px; border-radius: 4px; object-fit: contain;">
             <strong style="color: #d97706;">${s.prize_name}</strong>
           </div>
         </td>
@@ -670,7 +685,7 @@ async function deleteSpin(id, code, prizeName) {
 
   if (confirm(confirmText)) {
     try {
-      const res = await fetch(`/api/admin/spins/${id}`, {
+      const res = await apiFetch(`/api/admin/spins/${id}`, {
         method: 'DELETE',
         headers: getAuthHeaders()
       });
@@ -698,7 +713,7 @@ async function triggerManualSync() {
   btn.innerHTML = '⏳ ĐANG ĐỒNG BỘ...';
 
   try {
-    const res = await fetch('/api/admin/sync-sheet', {
+    const res = await apiFetch('/api/admin/sync-sheet', {
       method: 'POST',
       headers: getAuthHeaders()
     });
@@ -720,8 +735,24 @@ async function triggerManualSync() {
 }
 
 // XUẤT BÁO CÁO EXCEL LỊCH SỬ QUAY
-function exportSpinsExcel() {
-  window.open('/api/admin/export-spins?token=' + encodeURIComponent(token), '_blank');
+async function exportSpinsExcel() {
+  try {
+    const response = await apiFetch('/api/admin/export-spins', { headers: getAuthHeaders() });
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({}));
+      throw new Error(error.message || 'Không thể xuất lịch sử quay thưởng.');
+    }
+    const downloadUrl = URL.createObjectURL(await response.blob());
+    const downloadLink = document.createElement('a');
+    downloadLink.href = downloadUrl;
+    downloadLink.download = 'Lich_su_quay_thuong_BioAmicus.xlsx';
+    document.body.appendChild(downloadLink);
+    downloadLink.click();
+    downloadLink.remove();
+    setTimeout(() => URL.revokeObjectURL(downloadUrl), 1000);
+  } catch (error) {
+    alert(error.message || 'Lỗi kết nối máy chủ!');
+  }
 }
 
 
@@ -730,7 +761,7 @@ function exportSpinsExcel() {
 ======================================================== */
 async function loadSettings() {
   try {
-    const res = await fetch('/api/admin/settings', { headers: getAuthHeaders() });
+    const res = await apiFetch('/api/admin/settings', { headers: getAuthHeaders() });
     const data = await res.json();
     if (data.success) {
       document.getElementById('setting-webhook-url').value = data.google_sheet_webhook_url || '';
@@ -744,7 +775,7 @@ async function saveWebhookSetting() {
   const url = document.getElementById('setting-webhook-url').value.trim();
 
   try {
-    const res = await fetch('/api/admin/settings', {
+    const res = await apiFetch('/api/admin/settings', {
       method: 'POST',
       headers: { ...getAuthHeaders(), 'Content-Type': 'application/json' },
       body: JSON.stringify({ google_sheet_webhook_url: url })
@@ -768,7 +799,7 @@ async function changeAdminPassword() {
   }
 
   try {
-    const res = await fetch('/api/admin/settings', {
+    const res = await apiFetch('/api/admin/settings', {
       method: 'POST',
       headers: { ...getAuthHeaders(), 'Content-Type': 'application/json' },
       body: JSON.stringify({ new_password: newPass })

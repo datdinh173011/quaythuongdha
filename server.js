@@ -11,6 +11,7 @@ const { syncToGoogleSheet, startSyncWorker } = require('./syncWorker');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+const HOST = process.env.HOST || '127.0.0.1';
 
 // Đảm bảo thư mục uploads tồn tại
 const uploadsDir = path.join(__dirname, 'uploads');
@@ -784,7 +785,7 @@ app.post('/api/admin/settings', verifyAdmin, (req, res) => {
 });
 
 // Khởi động server
-app.listen(PORT, () => {
+app.listen(PORT, HOST, () => {
   console.log(`Server BioAmicus đang chạy tại http://localhost:${PORT}`);
   console.log(`Trang quay thưởng: http://localhost:${PORT}`);
   console.log(`Trang Admin: http://localhost:${PORT}/admin`);

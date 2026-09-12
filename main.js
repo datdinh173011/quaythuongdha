@@ -1,3 +1,14 @@
+const APP_BASE_PATH = /^\/quaythuongdha(?:\/|$)/.test(window.location.pathname) ? '/quaythuongdha' : '';
+
+function apiFetch(endpoint, options) {
+  return window.fetch(APP_BASE_PATH + endpoint, options);
+}
+
+function assetUrl(url, fallback = '') {
+  const value = url || fallback;
+  return /^\/?(?:img|uploads)\//.test(value) ? `${APP_BASE_PATH}/${value.replace(/^\//, '')}` : value;
+}
+
 // DOM Elements
 const provinceInput = document.getElementById("province-input");
 const provinceHidden = document.getElementById("province");
@@ -58,7 +69,7 @@ function removeVietnameseTones(str) {
 // 1. Tải danh sách tỉnh/thành từ máy chủ khi load trang
 async function loadProvinces() {
   try {
-    const res = await fetch('/api/provinces');
+    const res = await apiFetch('/api/provinces');
     const data = await res.json();
     if (data.success && data.provinces) {
       allProvinces = data.provinces;
@@ -104,7 +115,7 @@ async function selectProvince(provinceName) {
   currentAgencies = [];
 
   try {
-    const res = await fetch(`/api/agencies?province=${encodeURIComponent(provinceName)}`);
+    const res = await apiFetch(`/api/agencies?province=${encodeURIComponent(provinceName)}`);
     const data = await res.json();
     if (data.success && data.agencies) {
       currentAgencies = data.agencies;
@@ -227,7 +238,7 @@ submitForm.addEventListener("submit", async function (event) {
   btnSubmit.textContent = "ĐANG QUAY THƯỞNG...";
 
   try {
-    const res = await fetch('/api/spin', {
+    const res = await apiFetch('/api/spin', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -254,7 +265,7 @@ submitForm.addEventListener("submit", async function (event) {
       rewardTierName.textContent = String(tier).toUpperCase();
     }
     rewardResultName.textContent = result.prize.name;
-    rewardResultImg.src = result.prize.image_url || '/img/Giải Nhất.png';
+    rewardResultImg.src = assetUrl(result.prize.image_url, '/img/Giải Nhất.png');
     rewardAgencyText.textContent = result.agencyName;
     rewardCodeText.textContent = result.entryCode;
     
@@ -298,7 +309,7 @@ searchForm.addEventListener("submit", async function (event) {
   btnSearch.textContent = "...";
 
   try {
-    const res = await fetch(`/api/history?phone=${encodeURIComponent(phone)}`);
+    const res = await apiFetch(`/api/history?phone=${encodeURIComponent(phone)}`);
     const data = await res.json();
 
     if (!data.success) {
@@ -332,7 +343,7 @@ searchForm.addEventListener("submit", async function (event) {
           </td>
           <td>
             <div class="prize-cell">
-              <img src="${item.prize_image || '/img/Artboard 23@2x.png'}" alt="quà" />
+              <img src="${assetUrl(item.prize_image, '/img/Artboard 23@2x.png')}" alt="quà" />
               <span>${item.prize_name}</span>
             </div>
           </td>
