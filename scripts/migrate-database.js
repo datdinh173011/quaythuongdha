@@ -7,7 +7,10 @@ const { migrateLottery } = require('../lotterySchema');
 require('dotenv').config({ path: path.join(__dirname, '..', '.env') });
 
 async function main() {
-  const dbPath = process.env.DATABASE_PATH || path.join(__dirname, '..', 'data.db');
+  const dbPath = process.env.DATABASE_PATH || path.join(
+    process.env.NODE_ENV === 'production' ? '/var/lib/quaythuongdha' : path.join(__dirname, '..', '.runtime'),
+    'data.db'
+  );
   const db = new Database(dbPath, { fileMustExist: true });
   try {
     const backupDir = path.join(os.homedir(), '.quaythuongdha-backups');

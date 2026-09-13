@@ -9,6 +9,7 @@ require('dotenv').config();
 const db = require('./database');
 const { createLottery, normalizePhone, LotteryError, SCHEDULE, milestoneCounts, undoEligibility } = require('./lottery');
 const { PRIZE_CODES } = require('./lotterySchema');
+const { paginate } = require('./pagination');
 const lottery = createLottery(db);
 const { syncToGoogleSheet, startSyncWorker } = require('./syncWorker');
 
@@ -17,7 +18,10 @@ const PORT = process.env.PORT || 3000;
 const HOST = process.env.HOST || '127.0.0.1';
 
 // Đảm bảo thư mục uploads tồn tại
-const uploadsDir = path.join(__dirname, 'uploads');
+const uploadsDir = process.env.UPLOADS_PATH || path.join(
+  process.env.NODE_ENV === 'production' ? '/var/lib/quaythuongdha' : path.join(__dirname, '.runtime'),
+  'uploads'
+);
 if (!fs.existsSync(uploadsDir)) {
   fs.mkdirSync(uploadsDir, { recursive: true });
 }
@@ -76,8 +80,8 @@ function verifyAdmin(req, res, next) {
   }
   const cleanToken = token.replace(/^Bearer\s+/i, '');
   const setting = db.prepare('SELECT value FROM settings WHERE key = ?').get('admin_password');
-  const validPassword = setting ? setting.value : 'bioamicus2026';
-  if (cleanToken !== validPassword) {
+  const storedPassword = process.env.ADMIN_PASSWORD || (setting && setting.value);
+  if (!storedPassword || cleanToken !== storedPassword) {
     return res.status(403).json({ success: false, message: 'Mật khẩu quản trị không chính xác' });
   }
   next();
@@ -162,9 +166,9 @@ app.get('/api/history', (req, res) => {
 app.post('/api/admin/login', (req, res) => {
   const { password } = req.body;
   const setting = db.prepare('SELECT value FROM settings WHERE key = ?').get('admin_password');
-  const validPassword = setting ? setting.value : 'bioamicus2026';
+  const validPassword = process.env.ADMIN_PASSWORD || (setting && setting.value);
 
-  if (password === validPassword) {
+  if (validPassword && password === validPassword) {
     res.json({ success: true, token: password });
   } else {
     res.status(401).json({ success: false, message: 'Mật khẩu quản trị không đúng!' });
@@ -218,11 +222,10 @@ app.get('/api/admin/agencies', verifyAdmin, (req, res) => {
       sql += ' AND province = ?';
       params.push(province.trim());
     }
-    sql += ' ORDER BY id DESC';
-    const agencies = db.prepare(sql).all(...params);
-    res.json({ success: true, agencies });
+    const { rows: agencies, pagination } = paginate(db, req.query, sql, params, 'id DESC');
+    res.json({ success: true, agencies, pagination });
   } catch (err) {
-    res.status(500).json({ success: false, message: err.message });
+    res.status(err.status || 500).json({ success: false, message: err.message });
   }
 });
 
@@ -343,8 +346,8 @@ app.post('/api/admin/agencies/import', verifyAdmin, uploadMemory.single('file'),
 // --- QUẢN TRỊ QUÀ TẶNG ---
 app.get('/api/admin/prizes', verifyAdmin, (req, res) => {
   try {
-    const prizes = db.prepare('SELECT * FROM prizes ORDER BY id ASC').all();
-    const totalRemaining = prizes.reduce((sum, p) => sum + p.remaining_quantity, 0);
+    const { rows: prizes, pagination } = paginate(db, req.query, 'SELECT * FROM prizes', [], 'id ASC');
+    const totalRemaining = db.prepare('SELECT COALESCE(SUM(remaining_quantity), 0) AS total FROM prizes').get().total;
 
     const enrichedPrizes = prizes.map(p => {
       const fixedSpins = SCHEDULE.flatMap((code, index) => code === p.code ? [index] : []);
@@ -361,9 +364,9 @@ app.get('/api/admin/prizes', verifyAdmin, (req, res) => {
       };
     });
 
-    res.json({ success: true, prizes: enrichedPrizes, totalRemaining });
+    res.json({ success: true, prizes: enrichedPrizes, totalRemaining, pagination });
   } catch (err) {
-    res.status(500).json({ success: false, message: err.message });
+    res.status(err.status || 500).json({ success: false, message: err.message });
   }
 });
 
@@ -462,11 +465,10 @@ app.get('/api/admin/lucky-codes', verifyAdmin, (req, res) => {
       sql += ' AND status = ?';
       params.push(status);
     }
-    sql += ' ORDER BY id DESC LIMIT 500';
-    const codes = db.prepare(sql).all(...params);
-    res.json({ success: true, codes });
+    const { rows: codes, pagination } = paginate(db, req.query, sql, params, 'id DESC');
+    res.json({ success: true, codes, pagination });
   } catch (err) {
-    res.status(500).json({ success: false, message: err.message });
+    res.status(err.status || 500).json({ success: false, message: err.message });
   }
 });
 
@@ -580,11 +582,10 @@ app.get('/api/admin/spins', verifyAdmin, (req, res) => {
       sql += ' AND status = ?';
       params.push(status);
     }
-    sql += ' ORDER BY id DESC LIMIT 500';
-    const spins = db.prepare(sql).all(...params);
-    res.json({ success: true, spins: spins.map(spin => ({ ...spin, ...undoEligibility(db, spin) })) });
+    const { rows: spins, pagination } = paginate(db, req.query, sql, params, 'id DESC');
+    res.json({ success: true, spins: spins.map(spin => ({ ...spin, ...undoEligibility(db, spin) })), pagination });
   } catch (err) {
-    res.status(500).json({ success: false, message: err.message });
+    res.status(err.status || 500).json({ success: false, message: err.message });
   }
 });
 

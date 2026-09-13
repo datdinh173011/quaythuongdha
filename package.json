@@ -6,6 +6,7 @@
   "scripts": {
     "start": "node server.js",
     "db:migrate": "node scripts/migrate-database.js",
+    "db:backup": "node scripts/backup-database.js",
     "verify:lottery": "node scripts/verify-lottery.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },

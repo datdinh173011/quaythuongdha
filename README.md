@@ -115,7 +115,9 @@ GOOGLE_SHEET_WEBHOOK_URL=
 
 Luôn đặt working directory của tiến trình là thư mục gốc dự án để `.env` được nạp đúng. Thay đổi biến môi trường cần restart server. Không commit `.env`, URL webhook thật hoặc thông tin vận hành nhạy cảm.
 
-Code hiện **không hỗ trợ** biến môi trường cấu hình mật khẩu admin, đường dẫn database hoặc thư mục upload. Database nằm cố định cạnh `database.js`; upload nằm trong `uploads/` cạnh `server.js`.
+Runtime được tách khỏi source: dùng `DATABASE_PATH`, `UPLOADS_PATH` và `ADMIN_PASSWORD` trong secret của môi trường. Production mặc định dùng `/var/lib/quaythuongdha/data.db` và `/var/lib/quaythuongdha/uploads`; môi trường development dùng `.runtime/`.
+
+Không commit `data.db`, `data.db-wal`, `data.db-shm`, backup hoặc uploads vào Git. Database production không nằm trong release directory và không bị checkout/deploy ghi đè. Khởi tạo DB mới sẽ seed danh mục demo; DB đã có schema chỉ được migration, không reset dữ liệu.
 
 ## 5. Khởi tạo và sử dụng Admin
 
@@ -192,7 +194,7 @@ Repo chưa có Dockerfile, Compose, cấu hình process manager, reverse proxy h
 ### Dữ liệu bền vững, backup và cập nhật
 
 - Bảo toàn `data.db`, các file WAL/SHM liên quan và `uploads/`. SQLite cần quyền ghi cả thư mục chứa database, không chỉ riêng file `data.db`.
-- **Backup đơn giản khi dừng ứng dụng:** dừng tiến trình bằng công cụ quản lý dịch vụ, xác nhận không còn tiến trình dùng database, rồi sao lưu `data.db` cùng `data.db-wal`/`data.db-shm` nếu còn tồn tại và toàn bộ `uploads/` vào nơi riêng tư ngoài thư mục được phục vụ web. Lưu cấu hình môi trường an toàn riêng biệt.
+- **Backup khi service đang chạy:** chạy `DATABASE_PATH=/var/lib/quaythuongdha/data.db BACKUP_DIR=/var/backups/quaythuongdha npm run db:backup`. Lệnh dùng SQLite Online Backup API để tạo snapshot nhất quán, không copy riêng WAL/SHM. Sao lưu `uploads/` và secrets bằng cơ chế riêng, mã hóa backup và giới hạn quyền truy cập.
 - Không sao chép riêng `data.db` khi server đang ghi và không xóa WAL để “dọn rác”; WAL có thể chứa transaction đã commit chưa được checkpoint vào file chính.
 - Khi restore, giữ server dừng; dùng một bộ backup nhất quán, không ghép database với WAL/SHM từ lần khác. Khôi phục cả ảnh upload, cấu hình và quyền sở hữu trước khi khởi động. Cô lập bộ dữ liệu cũ thay vì ghi đè chồng các file phụ.
 - Trước mỗi lần cập nhật source, backup dữ liệu và ghi nhận phiên bản đang chạy. Không checkout/đồng bộ đè các file dữ liệu mà Git đang theo dõi. Cài dependencies từ lockfile, khởi động lại và kiểm tra lịch sử, kho quà, ảnh upload.

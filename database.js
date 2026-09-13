@@ -3,7 +3,11 @@ const path = require('path');
 const fs = require('fs');
 
 const { migrateLottery, isLotteryReady } = require('./lotterySchema');
-const dbPath = process.env.DATABASE_PATH || path.join(__dirname, 'data.db');
+const defaultDataDir = process.env.NODE_ENV === 'production'
+  ? '/var/lib/quaythuongdha'
+  : path.join(__dirname, '.runtime');
+const dbPath = process.env.DATABASE_PATH || path.join(defaultDataDir, 'data.db');
+fs.mkdirSync(path.dirname(dbPath), { recursive: true, mode: 0o700 });
 const db = new Database(dbPath);
 
 const existingSchema = db.prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'spin_logs'").get();
@@ -83,7 +87,7 @@ function initDatabase() {
   }
 
   const insertSetting = db.prepare(`INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)`);
-  insertSetting.run('admin_password', 'bioamicus2026');
+  if (process.env.ADMIN_PASSWORD) insertSetting.run('admin_password', process.env.ADMIN_PASSWORD);
   insertSetting.run('google_sheet_webhook_url', '');
 
   // Cập nhật giá trị prize_tier cho các giải thưởng mẫu hiện có nếu trống

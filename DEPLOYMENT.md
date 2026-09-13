@@ -13,8 +13,10 @@ Nginx (daily.bioamicus.vn)
    └── /quaythuongdha-admin/ ├── proxy tới 127.0.0.1:3000
                              │
                          Node.js / Express
-                             ├── data.db + data.db-wal + data.db-shm
-                             └── uploads/
+                             └── source release (không chứa runtime data)
+
+Persistent runtime (ngoài release/source): `/var/lib/quaythuongdha/data.db`,
+`/var/lib/quaythuongdha/uploads/` và secret environment.
 ```
 
 Ứng dụng cần filesystem persistent để ghi SQLite và ảnh. Chỉ chạy một Node.js instance: `database.js` mở SQLite local và `syncWorker.js` chạy timer đồng bộ Google Sheets trong cùng process. Service mẫu bind Node.js vào `127.0.0.1:3000` qua biến `HOST`.
@@ -259,21 +261,22 @@ Với luật `phone-v3`, dừng toàn bộ server/worker trước khi chạy `np
 
 Các dữ liệu runtime cần giữ persistent:
 
-- `data.db`
-- `data.db-wal` và `data.db-shm` khi tồn tại
-- Toàn bộ thư mục `uploads/`
+- `/var/lib/quaythuongdha/data.db` (SQLite tự quản lý WAL/SHM cạnh file này)
+- Toàn bộ `/var/lib/quaythuongdha/uploads/`
 - `.env` và cấu hình webhook ở nơi lưu trữ bí mật
 
 Backup an toàn khi dừng service:
 
 ```sh
 sudo systemctl stop quaythuongdha
-sudo tar -czf /var/backups/quaythuongdha-$(date +%F-%H%M%S).tar.gz \
-  -C /var/www/quaythuongdha data.db data.db-wal data.db-shm uploads
+sudo -u www-data env DATABASE_PATH=/var/lib/quaythuongdha/data.db \
+  BACKUP_DIR=/var/backups/quaythuongdha npm run db:backup
+sudo tar -czf /var/backups/quaythuongdha-uploads-$(date +%F-%H%M%S).tar.gz \
+  -C /var/lib/quaythuongdha uploads
 sudo systemctl start quaythuongdha
 ```
 
-Nếu một file WAL/SHM không tồn tại, loại file đó khỏi lệnh `tar` hoặc dùng công cụ backup phù hợp. Không sao chép riêng `data.db` khi server đang ghi; WAL có thể chứa transaction đã commit chưa được checkpoint. Không xóa WAL/SHM để xử lý lỗi khóa database.
+Không copy riêng `data.db` khi server đang ghi và không xóa WAL/SHM để xử lý lỗi khóa database. Online Backup API tạo snapshot nhất quán mà không cần ghép thủ công ba file SQLite.
 
 Khi restore, dừng service, khôi phục một bộ database nhất quán cùng ảnh upload, kiểm tra quyền `www-data`, rồi mới start lại. Khi cập nhật source, backup trước, không checkout đè database production, cài bằng `npm ci`, restart service và kiểm tra dữ liệu. Migration chạy khi process khởi động; rollback code không tự rollback dữ liệu/schema.
 

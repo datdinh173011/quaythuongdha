@@ -20,6 +20,140 @@ let token = localStorage.getItem('admin_token') || '';
 let currentTab = 'agencies';
 let allProvinces = [];
 
+const listPages = Object.fromEntries(['agencies', 'prizes', 'codes', 'spins'].map(key => [key, {
+  page: 1, pageSize: 25, total: 0, totalPages: 0, request: 0, loading: false, error: false
+}]));
+
+function reloadList(key, reset = false) {
+  if (reset) listPages[key].page = 1;
+  return { agencies: loadAgencies, prizes: loadPrizes, codes: loadCodes, spins: loadSpins }[key]();
+}
+
+function bindListFilter(id, eventName, key, delayed = false) {
+  const load = delayed ? debounce(() => reloadList(key), 300) : () => reloadList(key);
+  document.getElementById(id).addEventListener(eventName, () => {
+    listPages[key].page = 1;
+    listPages[key].request++;
+    listPages[key].loading = true;
+    renderPagination(key);
+    load();
+  });
+}
+
+function paginationNumbers(page, totalPages) {
+  const pages = [];
+  const candidates = totalPages <= 7 ? Array.from({ length: totalPages }, (_, index) => index + 1)
+    : [...new Set([1, page - 1, page, page + 1, totalPages])].filter(candidate => candidate >= 1 && candidate <= totalPages).sort((first, second) => first - second);
+  for (const candidate of candidates) {
+    if (pages.length && candidate - pages[pages.length - 1] > 1) pages.push('…');
+    pages.push(candidate);
+  }
+  return pages;
+}
+
+function renderPagination(key) {
+  const state = listPages[key];
+  const container = document.getElementById(`${key}-pagination`);
+  if (!container) return;
+  container.replaceChildren();
+  container.setAttribute('aria-busy', String(state.loading));
+  const summary = document.createElement('span');
+  summary.className = 'pagination-summary';
+  summary.setAttribute('role', 'status');
+  const start = state.total ? (state.page - 1) * state.pageSize + 1 : 0;
+  const end = Math.min(state.page * state.pageSize, state.total);
+  summary.textContent = state.loading ? 'Đang tải danh sách…' : state.error ? 'Không tải được danh sách.'
+    : `Hiển thị ${start}–${end} trên ${state.total.toLocaleString('vi-VN')} bản ghi · Trang ${state.totalPages ? state.page : 0}/${state.totalPages}`;
+  container.appendChild(summary);
+  const sizeLabel = document.createElement('label');
+  sizeLabel.className = 'pagination-size';
+  sizeLabel.appendChild(document.createTextNode('Số dòng/trang '));
+  const sizeSelect = document.createElement('select');
+  sizeSelect.setAttribute('aria-label', 'Số dòng mỗi trang');
+  sizeSelect.setAttribute('data-pagination-focus', 'size');
+  for (const size of [10, 25, 50, 100]) {
+    const option = document.createElement('option');
+    option.value = String(size);
+    option.textContent = String(size);
+    sizeSelect.appendChild(option);
+  }
+  sizeSelect.value = String(state.pageSize);
+  sizeSelect.addEventListener('change', () => {
+    state.focusTarget = 'size';
+    state.pageSize = Number(sizeSelect.value);
+    reloadList(key, true);
+  });
+  sizeLabel.appendChild(sizeSelect);
+  container.appendChild(sizeLabel);
+  const navigation = document.createElement('nav');
+  navigation.className = 'pagination-navigation';
+  navigation.setAttribute('aria-label', 'Chọn trang danh sách');
+  function button(text, label, page, disabled = false) {
+    const control = document.createElement('button');
+    control.type = 'button';
+    control.className = 'pagination-button';
+    control.textContent = text;
+    control.setAttribute('aria-label', label);
+    control.setAttribute('data-pagination-focus', label);
+    control.disabled = disabled || state.loading;
+    if (typeof text === 'number' && page === state.page) control.setAttribute('aria-current', 'page');
+    control.addEventListener('click', () => { state.focusTarget = label; state.page = page; reloadList(key); });
+    navigation.appendChild(control);
+  }
+  if (state.error) {
+    button('Thử lại', 'Tải lại danh sách', state.page);
+  } else {
+    button('‹ Trước', 'Trang trước', state.page - 1, state.page <= 1 || !state.totalPages);
+    for (const page of paginationNumbers(state.page, state.totalPages)) {
+      if (page === '…') {
+        const gap = document.createElement('span');
+        gap.className = 'pagination-gap';
+        gap.textContent = page;
+        gap.setAttribute('aria-hidden', 'true');
+        navigation.appendChild(gap);
+      } else button(page, `Trang ${page}`, page);
+    }
+    button('Sau ›', 'Trang sau', state.page + 1, state.page >= state.totalPages);
+  }
+  container.appendChild(navigation);
+  if (!state.loading && state.focusTarget) {
+    const focusTarget = container.querySelector(`[data-pagination-focus="${state.focusTarget}"]`);
+    if (focusTarget && !focusTarget.disabled) focusTarget.focus({ preventScroll: true });
+    state.focusTarget = null;
+  }
+}
+
+function beginPageLoad(key) {
+  const state = listPages[key];
+  state.loading = true;
+  state.error = false;
+  renderPagination(key);
+  return ++state.request;
+}
+
+async function fetchListPage(key, url, request) {
+  const state = listPages[key];
+  const separator = url.includes('?') ? '&' : '?';
+  const res = await apiFetch(`${url}${separator}page=${state.page}&pageSize=${state.pageSize}`, { headers: getAuthHeaders() });
+  const data = await res.json();
+  if (request !== state.request) return null;
+  if (!res.ok || !data.success || !data.pagination) {
+    throw new Error(data.message || `Không tải được danh sách (HTTP ${res.status})`);
+  }
+  Object.assign(state, data.pagination, { loading: false, error: false });
+  renderPagination(key);
+  return data;
+}
+
+function failPageLoad(key, request) {
+  const state = listPages[key];
+  if (request !== state.request) return false;
+  state.loading = false;
+  state.error = true;
+  renderPagination(key);
+  return true;
+}
+
 // API Helpers
 function getAuthHeaders() {
   return {
@@ -43,14 +177,15 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('login-form').addEventListener('submit', handleLogin);
 
   // Lắng nghe tìm kiếm & lọc
-  document.getElementById('agency-search-input').addEventListener('input', debounce(loadAgencies, 300));
-  document.getElementById('agency-province-filter').addEventListener('change', loadAgencies);
+  bindListFilter('agency-search-input', 'input', 'agencies', true);
+  bindListFilter('agency-province-filter', 'change', 'agencies');
 
-  document.getElementById('code-search-input').addEventListener('input', debounce(loadCodes, 300));
-  document.getElementById('code-status-filter').addEventListener('change', loadCodes);
+  bindListFilter('code-search-input', 'input', 'codes', true);
+  bindListFilter('code-status-filter', 'change', 'codes');
 
-  document.getElementById('spin-search-input').addEventListener('input', debounce(loadSpins, 300));
-  document.getElementById('spin-sync-filter').addEventListener('change', loadSpins);
+  bindListFilter('spin-search-input', 'input', 'spins', true);
+  bindListFilter('spin-sync-filter', 'change', 'spins');
+  bindListFilter('spin-status-filter', 'change', 'spins');
 });
 
 function debounce(func, wait) {
@@ -197,6 +332,7 @@ async function loadProvincesFilter() {
 }
 
 async function loadAgencies() {
+  const request = beginPageLoad('agencies');
   const tbody = document.getElementById('agencies-table-body');
   const q = document.getElementById('agency-search-input').value.trim();
   const province = document.getElementById('agency-province-filter').value;
@@ -205,8 +341,8 @@ async function loadAgencies() {
 
   try {
     const url = `/api/admin/agencies?q=${encodeURIComponent(q)}&province=${encodeURIComponent(province)}`;
-    const res = await apiFetch(url, { headers: getAuthHeaders() });
-    const data = await res.json();
+    const data = await fetchListPage('agencies', url, request);
+    if (!data) return;
 
     if (!data.success || !data.agencies || data.agencies.length === 0) {
       tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted">Không tìm thấy đại lý nào.</td></tr>';
@@ -217,7 +353,7 @@ async function loadAgencies() {
     data.agencies.forEach((a, idx) => {
       const tr = document.createElement('tr');
       tr.innerHTML = `
-        <td style="text-align: center;">${idx + 1}</td>
+        <td style="text-align: center;">${(listPages.agencies.page - 1) * listPages.agencies.pageSize + idx + 1}</td>
         <td><strong style="color: #0284c7;">${a.code || '-'}</strong></td>
         <td><strong>${a.name}</strong></td>
         <td><span class="badge badge-info">${a.province}</span></td>
@@ -230,7 +366,9 @@ async function loadAgencies() {
       tbody.appendChild(tr);
     });
   } catch (err) {
+    if (!failPageLoad('agencies', request)) return;
     tbody.innerHTML = '<tr><td colspan="6" class="text-center error-msg">Lỗi tải danh sách đại lý.</td></tr>';
+    console.error('Lỗi tải danh sách đại lý:', err);
   }
 }
 
@@ -279,7 +417,7 @@ async function handleSaveAgency(e) {
     const data = await res.json();
     if (data.success) {
       closeAgencyModal();
-      loadAgencies();
+      reloadList('agencies', !isEdit);
       loadProvincesFilter();
       loadDashboardStats();
     } else {
@@ -327,7 +465,7 @@ async function handleImportAgencyExcel(e) {
     const data = await res.json();
     if (data.success) {
       alert(data.message);
-      loadAgencies();
+      reloadList('agencies', true);
       loadProvincesFilter();
       loadDashboardStats();
     } else {
@@ -356,12 +494,13 @@ function downloadSampleAgencyExcel() {
    TAB 2: QUẢN LÝ QUÀ TẶNG
 ======================================================== */
 async function loadPrizes() {
+  const request = beginPageLoad('prizes');
   const tbody = document.getElementById('prizes-table-body');
   tbody.innerHTML = '<tr><td colspan="9" class="text-center">Đang tải danh sách quà...</td></tr>';
 
   try {
-    const res = await apiFetch('/api/admin/prizes', { headers: getAuthHeaders() });
-    const data = await res.json();
+    const data = await fetchListPage('prizes', '/api/admin/prizes', request);
+    if (!data) return;
 
     if (!data.success || !data.prizes || data.prizes.length === 0) {
       tbody.innerHTML = '<tr><td colspan="9" class="text-center text-muted">Chưa có quà tặng nào trong kho.</td></tr>';
@@ -373,7 +512,7 @@ async function loadPrizes() {
       const tr = document.createElement('tr');
 
       tr.innerHTML = `
-        <td style="text-align: center;">${idx + 1}</td>
+        <td style="text-align: center;">${(listPages.prizes.page - 1) * listPages.prizes.pageSize + idx + 1}</td>
         <td>
           <img src="${assetUrl(p.image_url, '/img/Artboard 23@2x.png')}" alt="quà" class="table-img">
         </td>
@@ -391,6 +530,7 @@ async function loadPrizes() {
       tbody.appendChild(tr);
     });
   } catch (err) {
+    if (!failPageLoad('prizes', request)) return;
     tbody.innerHTML = '<tr><td colspan="9" class="text-center error-msg">Lỗi tải danh sách quà.</td></tr>';
   }
 }
@@ -464,7 +604,7 @@ async function handleSavePrize(e) {
     const data = await res.json();
     if (data.success) {
       closePrizeModal();
-      loadPrizes();
+      reloadList('prizes', !isEdit);
       loadDashboardStats();
     } else {
       alert('Lỗi: ' + (data.message || 'Không thể lưu quà'));
@@ -499,6 +639,7 @@ async function deletePrize(id, name) {
    TAB 3: QUẢN LÝ MÃ DỰ THƯỞNG & SERIAL
 ======================================================== */
 async function loadCodes() {
+  const request = beginPageLoad('codes');
   const tbody = document.getElementById('codes-table-body');
   const q = document.getElementById('code-search-input').value.trim();
   const status = document.getElementById('code-status-filter').value;
@@ -507,8 +648,8 @@ async function loadCodes() {
 
   try {
     const url = `/api/admin/lucky-codes?q=${encodeURIComponent(q)}&status=${encodeURIComponent(status)}`;
-    const res = await apiFetch(url, { headers: getAuthHeaders() });
-    const data = await res.json();
+    const data = await fetchListPage('codes', url, request);
+    if (!data) return;
 
     if (!data.success || !data.codes || data.codes.length === 0) {
       tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted">Không tìm thấy mã dự thưởng nào.</td></tr>';
@@ -520,7 +661,7 @@ async function loadCodes() {
       const tr = document.createElement('tr');
       const isUsed = c.status === 'used';
       tr.innerHTML = `
-        <td style="text-align: center;">${idx + 1}</td>
+        <td style="text-align: center;">${(listPages.codes.page - 1) * listPages.codes.pageSize + idx + 1}</td>
         <td><strong style="color: #0284c7; font-family: monospace; font-size: 1.05rem;">${c.code}</strong></td>
         <td><span style="font-family: monospace;">${c.serial_number || '-'}</span></td>
         <td style="text-align: center;">
@@ -536,6 +677,7 @@ async function loadCodes() {
       tbody.appendChild(tr);
     });
   } catch (err) {
+    if (!failPageLoad('codes', request)) return;
     tbody.innerHTML = '<tr><td colspan="6" class="text-center error-msg">Lỗi tải danh sách mã.</td></tr>';
   }
 }
@@ -564,7 +706,7 @@ async function handleSaveCode(e) {
     const data = await res.json();
     if (data.success) {
       closeCodeModal();
-      loadCodes();
+      reloadList('codes', true);
       loadDashboardStats();
     } else {
       alert('Lỗi: ' + (data.message || 'Mã đã tồn tại'));
@@ -610,7 +752,7 @@ async function handleImportCodeExcel(e) {
     const data = await res.json();
     if (data.success) {
       alert(data.message);
-      loadCodes();
+      reloadList('codes', true);
       loadDashboardStats();
     } else {
       alert('Lỗi: ' + data.message);
@@ -639,6 +781,7 @@ function downloadSampleCodeExcel() {
    TAB 4: QUẢN TRỊ LƯỢT QUAY & ĐỒNG BỘ GOOGLE SHEETS
 ======================================================== */
 async function loadSpins() {
+  const request = beginPageLoad('spins');
   const tbody = document.getElementById('spins-table-body');
   const q = document.getElementById('spin-search-input').value.trim();
   const synced = document.getElementById('spin-sync-filter').value;
@@ -648,8 +791,8 @@ async function loadSpins() {
 
   try {
     const url = `/api/admin/spins?q=${encodeURIComponent(q)}&synced=${encodeURIComponent(synced)}&status=${encodeURIComponent(status)}`;
-    const res = await apiFetch(url, { headers: getAuthHeaders() });
-    const data = await res.json();
+    const data = await fetchListPage('spins', url, request);
+    if (!data) return;
 
     if (!data.success || !data.spins || data.spins.length === 0) {
       tbody.innerHTML = '<tr><td colspan="10" class="text-center text-muted">Chưa có lượt quay thưởng nào.</td></tr>';
@@ -700,6 +843,7 @@ async function loadSpins() {
       tbody.appendChild(tr);
     });
   } catch (err) {
+    if (!failPageLoad('spins', request)) return;
     tbody.innerHTML = '<tr><td colspan="10" class="text-center error-msg">Lỗi tải lịch sử quay.</td></tr>';
   }
 }
