@@ -61,3 +61,15 @@ node_modules/
 /playwright/.auth/
 .npm-cache/*
 .env
+
+# Runtime data (keep outside source control)
+data.db*
+*.sqlite
+*.sqlite3
+*.db
+*.db-wal
+*.db-shm
+*.backup
+*.bak
+/uploads/*
+!/uploads/.gitkeep
