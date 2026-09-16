@@ -1,5 +1,7 @@
 # Quay thưởng DHA — BioAmicus
 
+> Bản cập nhật ngân hàng cần migration `bank-details-v1`, danh mục được duyệt và bộ ảnh mới trước khi phát hành. Xem [hướng dẫn triển khai và đầu vào còn thiếu](docs/bank-details-release.md). Không chạy migration khi server/worker còn ghi dữ liệu.
+
 Ứng dụng quay thưởng bằng mã dự thưởng, gồm giao diện người tham gia và trang quản trị. Một tiến trình Node.js phục vụ cả giao diện, API và tác vụ đồng bộ Google Sheets; dữ liệu được lưu trong SQLite trên máy chạy ứng dụng.
 
 Luật hiện hành: [Luật quay thưởng theo SĐT — phone-v3](docs/luat-quay-thuong.md). [Models và trường dữ liệu](docs/schema.md). SĐT chuẩn hóa là khóa duy nhất, cộng cả lịch sử cũ; không có kỳ thưởng. Lặp lịch 30 lượt, vàng chỉ xét lượt tuyệt đối 14/25, 500k chỉ lượt 8; giới hạn tính cả quà cũ chưa hủy. Giữ nguyên `a < b * 4/3`: nếu b = 0 thì không tự phát vàng. Admin được hủy lượt cuối từng SĐT, kể cả lượt cũ, và quay lại theo luật hiện tại.
@@ -158,7 +160,7 @@ Import đại lý cập nhật thông tin khi trùng mã đại lý; import mã 
 
 - Worker chạy trong tiến trình Express, lần đầu sau **15 giây**, sau đó theo timer **2 phút/lần**. Không có dịch vụ worker riêng cần khởi động.
 - Mỗi lần lấy tối đa **100** lượt chưa đồng bộ, theo ID tăng dần; phần còn lại chờ lần đồng bộ tiếp theo.
-- Gửi POST JSON `{ "action": "sync_spins", "protocol": "spin-record-v2", "data": [...] }`, gồm trạng thái và `record_version`.
+- Gửi POST JSON `{ "action": "sync_spins", "protocol": "spin-record-v3", "data": [...] }`, gồm trạng thái, `record_version` và thông tin ngân hàng.
 - Worker chỉ cập nhật `is_synced`/`synced_at` khi HTTP/JSON thành công và nhận đủ xác nhận đúng ID/phiên bản; cập nhật có điều kiện trên phiên bản hiện tại để tránh phản hồi cũ đánh dấu lượt vừa hủy.
 - [Mẫu Apps Script](docs/google-sheets-sync.gs) cập nhật theo ID, bỏ qua phiên bản cũ, chống trùng và khóa cập nhật. Lượt hủy cập nhật dòng cũ, lượt quay lại tạo dòng ID mới.
 

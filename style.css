@@ -73,7 +73,7 @@
 #submit-form select,
 #submit-form input {
   width: 100%;
-  height: 10%;
+  height: 8.5%;
   border: 1px solid #d1d3d4;
   border-top-left-radius: 2% 15%;
   border-top-right-radius: 2% 15%;
@@ -81,14 +81,14 @@
   border-bottom-right-radius: 2% 15%;
   padding-left: 5%;
   color: #272f6b;
-  font-size: 1.2rem;
+  font-size: 1.15rem;
 }
 
 /* Combobox Searchable Dropdowns */
 .combobox-wrapper {
   position: relative;
   width: 100%;
-  height: 10%;
+  height: 8.5%;
 }
 .combobox-wrapper input {
   width: 100%;
@@ -152,7 +152,7 @@
 }
 #submit-form button {
   width: 72%;
-  height: 13.5%;
+  height: 11.5%;
   color: #ffffff;
   background-color: #00bbff;
   font-weight: 800;
@@ -234,10 +234,10 @@
     height: auto;
   }
   .form {
-    top: calc(100vw * 0.06);
+    top: calc(100vw * 0.045);
     left: 20%;
     width: 25%;
-    aspect-ratio: 1/1.6;
+    aspect-ratio: 1/1.7;
   }
   .header {
     aspect-ratio: 1/0.3;
@@ -250,7 +250,7 @@
   }
   #submit-form {
     margin: 0% auto 0;
-    aspect-ratio: 1/1;
+    aspect-ratio: 1/1.12;
   }
   #submit-form select,
   #submit-form input {
@@ -269,6 +269,13 @@
     font-size: clamp(0.16rem, 0.64vw + 0.13rem, 3.8rem);
   }
 }
+
+/* Utility classes */
+#submit-form button:disabled { opacity: 0.55; cursor: not-allowed; }
+#submit-form .retry-banks { background: white; color: #0369a1; border: 1px solid #0369a1; border-radius: 6px; padding: 4px; font-size: 0.85rem; }
+[hidden] { display: none !important; }
+.history-bank-info { font-size: 0.8rem; color: #475569; margin-top: 8px; }
+.popup-program-name { color: #0369a1; font-weight: 800; margin-bottom: 16px; }
 
 /* ========================================================
    MODAL POPUP SYSTEM (REWARD RESULT, HISTORY, ALERT)

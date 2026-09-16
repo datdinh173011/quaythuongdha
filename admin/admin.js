@@ -674,8 +674,9 @@ async function loadSpins() {
         <td><strong>${s.agency_name}</strong></td>
         <td>${s.province}</td>
         <td>
-          <div>${s.owner_name}</div>
           <strong style="color: #0284c7;">${s.phone}</strong>
+          <div class="spin-bank"></div>
+          <div class="spin-account-holder"></div>
         </td>
         <td style="font-size: 0.85rem;">${s.address}</td>
         <td>
@@ -697,6 +698,8 @@ async function loadSpins() {
           ${s.canUndo ? `<button class="btn btn-danger-outline btn-sm" onclick="deleteSpin(${s.id})">Hủy lượt cuối</button>` : `<span class="badge badge-info">${s.undoReason === 'SPIN_ALREADY_VOID' ? 'Đã hủy' : s.undoReason === 'NOT_LATEST_SPIN' ? 'Không phải lượt cuối' : 'Không thể hủy'}</span>`}
         </td>
       `;
+      tr.querySelector('.spin-bank').textContent = `${s.bank_name || '-'} · ${s.bank_account_number || '-'}`;
+      tr.querySelector('.spin-account-holder').textContent = s.bank_account_holder_name || '-';
       tbody.appendChild(tr);
     });
   } catch (err) {

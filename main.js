@@ -85,6 +85,24 @@ async function loadProvinces() {
   }
 }
 
+// Tải danh mục ngân hàng
+async function loadBanks() {
+  const bankSelect = document.getElementById("bank-name");
+  if (!bankSelect) return;
+  try {
+    const res = await apiFetch('/api/banks');
+    const data = await res.json();
+    if (data.success && Array.isArray(data.banks)) {
+      bankSelect.replaceChildren(new Option('Chọn ngân hàng', ''));
+      data.banks.forEach(b => {
+        bankSelect.add(new Option(b.name, b.name));
+      });
+    }
+  } catch (err) {
+    console.warn("Lỗi khi tải danh mục ngân hàng:", err);
+  }
+}
+
 // Render dropdown Tỉnh/Thành theo từ khóa gõ
 function renderProvinceDropdown(filterText = "") {
   const cleanFilter = removeVietnameseTones(filterText);
@@ -213,10 +231,15 @@ submitForm.addEventListener("submit", async function (event) {
 
   const province = provinceHidden.value;
   const agencyVal = agencyHidden.value;
-  const ownerName = document.getElementById("owner-name").value.trim();
   const phone = document.getElementById("phone").value.trim();
   const address = document.getElementById("adress").value.trim();
   const entryCode = document.getElementById("entry-code").value.trim();
+  const bankNameInput = document.getElementById("bank-name");
+  const bankName = bankNameInput ? bankNameInput.value.trim() : '';
+  const bankAccountInput = document.getElementById("bank-account-number");
+  const bankAccountNumber = bankAccountInput ? bankAccountInput.value.trim() : '';
+  const bankHolderInput = document.getElementById("bank-account-holder-name");
+  const bankAccountHolderName = bankHolderInput ? bankHolderInput.value.trim() : '';
 
   if (!province) {
     showAlert("Thông Báo", "Vui lòng chọn hoặc gõ tìm kiếm Tỉnh/thành của bạn.", "⚠️");
@@ -228,8 +251,12 @@ submitForm.addEventListener("submit", async function (event) {
     agencyInput.focus();
     return;
   }
-  if (!ownerName || !phone || !address || !entryCode) {
+  if (!phone || !address || !entryCode) {
     showAlert("Thông Báo", "Vui lòng nhập đầy đủ các trường thông tin!", "⚠️");
+    return;
+  }
+  if (bankNameInput && (!bankName || !bankAccountNumber || !bankAccountHolderName)) {
+    showAlert("Thông Báo", "Vui lòng chọn ngân hàng và nhập đầy đủ số tài khoản, tên chủ tài khoản!", "⚠️");
     return;
   }
 
@@ -251,10 +278,12 @@ submitForm.addEventListener("submit", async function (event) {
         province,
         agencyCode,
         agencyName,
-        ownerName,
         phone,
         address,
-        entryCode
+        entryCode,
+        bankName,
+        bankAccountNumber,
+        bankAccountHolderName
       })
     });
 
@@ -282,7 +311,7 @@ submitForm.addEventListener("submit", async function (event) {
       rewardSerialRow.style.display = 'none';
     }
     
-    rewardTimeText.textContent = `Lượt quay thứ ${result.spinNumber} · ${formatSpinTime(result.spinTime)}`;
+    rewardTimeText.textContent = formatSpinTime(result.spinTime);
 
     // Mở popup kết quả và bắn pháo hoa Confetti
     openRewardModal();
@@ -334,13 +363,27 @@ searchForm.addEventListener("submit", async function (event) {
         const tr = document.createElement("tr");
 
         const timeStr = formatSpinTime(item.spin_time);
+        const bankName = (item.bank_name || '').trim();
+        const accountNumber = (item.bank_account_number || '').trim();
+        const accountHolder = (item.bank_account_holder_name || '').trim();
+
+        let bankInfoHtml = '';
+        if (bankName || accountNumber || accountHolder) {
+          const bankLine = [bankName, accountNumber].filter(Boolean).join(' ');
+          bankInfoHtml = `
+            <div class="history-bank-info" style="margin-top: 5px; font-size: 0.85rem; line-height: 1.35;">
+              ${bankLine ? `<div style="font-weight: 700; color: #1e293b;">${bankLine}</div>` : ''}
+              ${accountHolder ? `<div style="color: #475569; font-weight: 500;">${accountHolder}</div>` : ''}
+            </div>
+          `;
+        }
 
         tr.innerHTML = `
           <td style="text-align: center; font-weight: bold; color: #64748b;">${index + 1}</td>
           <td>
             <strong>${item.agency_name}</strong>
             <div style="font-size: 0.8rem; color: #0284c7;">Mã: ${item.entry_code || ''}</div>
-            <div style="font-size: 0.85rem; font-weight: 800;">Lượt quay thứ ${item.spin_number}</div>
+            ${bankInfoHtml}
           </td>
           <td>
             <div class="prize-cell">
@@ -426,4 +469,5 @@ function fireConfetti() {
 // Khởi chạy khi load xong DOM
 document.addEventListener("DOMContentLoaded", () => {
   loadProvinces();
+  loadBanks();
 });

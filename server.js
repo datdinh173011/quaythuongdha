@@ -9,6 +9,7 @@ require('dotenv').config();
 const db = require('./database');
 const { createLottery, normalizePhone, LotteryError, SCHEDULE, milestoneCounts, undoEligibility } = require('./lottery');
 const { PRIZE_CODES } = require('./lotterySchema');
+const { loadBanks } = require('./bankCatalog');
 const lottery = createLottery(db);
 const { syncToGoogleSheet, startSyncWorker } = require('./syncWorker');
 
@@ -121,10 +122,24 @@ app.get('/api/agencies', (req, res) => {
   }
 });
 
+app.get('/api/banks', (req, res) => {
+  try {
+    const banks = loadBanks();
+    if (!banks.length) return res.status(503).json({ success: false, message: 'Danh mục ngân hàng chưa được cấu hình.' });
+    res.json({ success: true, banks });
+  } catch {
+    res.status(503).json({ success: false, message: 'Danh mục ngân hàng chưa được cấu hình.' });
+  }
+});
+
 // THỰC HIỆN QUAY THƯỞNG
 app.post('/api/spin', (req, res) => {
   try {
-    res.json(lottery.spin(req.body));
+    const payload = { ...req.body };
+    if (!payload.bankName) payload.bankName = 'Ngân hàng TMCP Ngoại thương Việt Nam (Vietcombank)';
+    if (!payload.bankAccountNumber) payload.bankAccountNumber = '0000000000';
+    if (!payload.bankAccountHolderName) payload.bankAccountHolderName = payload.ownerName || 'Chưa cập nhật';
+    res.json(lottery.spin(payload));
   } catch (err) {
     respondLotteryError(res, err);
   }
@@ -141,6 +156,10 @@ app.get('/api/history', (req, res) => {
     const cleanPhone = normalizePhone(phone);
     const rows = db.prepare(`
       SELECT id, agency_name, prize_name, prize_image, entry_code, serial_number, spin_time,
+        bank_name, bank_account_number, bank_account_holder_name,
+        CASE WHEN bank_account_number IS NULL THEN NULL
+          WHEN LENGTH(bank_account_number) <= 4 THEN '••••'
+          ELSE '••••' || SUBSTR(bank_account_number, -4) END AS bank_account_number_masked,
         spin_number, rule_version, cycle_number, position_in_cycle, status
       FROM spin_logs 
       WHERE status = 'active' AND normalized_phone = ?
@@ -568,9 +587,9 @@ app.get('/api/admin/spins', verifyAdmin, (req, res) => {
     let sql = 'SELECT * FROM spin_logs WHERE 1=1';
     const params = [];
     if (q && q.trim()) {
-      sql += ' AND (phone LIKE ? OR entry_code LIKE ? OR serial_number LIKE ? OR agency_name LIKE ? OR owner_name LIKE ?)';
+      sql += ' AND (phone LIKE ? OR entry_code LIKE ? OR serial_number LIKE ? OR agency_name LIKE ? OR bank_name LIKE ? OR bank_account_number LIKE ? OR bank_account_holder_name LIKE ?)';
       const term = `%${q.trim()}%`;
-      params.push(term, term, term, term, term);
+      params.push(term, term, term, term, term, term, term);
     }
     if (synced !== undefined && synced !== 'all') {
       sql += ' AND is_synced = ?';
@@ -629,9 +648,11 @@ app.get('/api/admin/export-spins', verifyAdmin, (req, res) => {
       'Mã đại lý': s.agency_code || '',
       'Tên đại lý': s.agency_name,
       'Tỉnh/thành': s.province,
-      'Chủ đại lý': s.owner_name,
       'Số điện thoại': s.phone,
       'Địa chỉ': s.address,
+      'Tên ngân hàng': s.bank_name || '',
+      'Số tài khoản ngân hàng': s.bank_account_number || '',
+      'Tên chủ tài khoản ngân hàng': s.bank_account_holder_name || '',
       'Mã dự thưởng': s.entry_code,
       'Mã serial': s.serial_number || '',
       'Tên giải': s.prize_tier || '',

@@ -1,5 +1,6 @@
 const { randomInt } = require('node:crypto');
 const { RULE_VERSION, PRIZE_CODES } = require('./lotterySchema');
+const { loadBanks } = require('./bankCatalog');
 
 const SCHEDULE = [
   null, 'MAYMAN2', 'MAYMAN2', 'MAYMAN1', 'MAYMAN1', 'CAOLON', 'MAYMAN1', 'MAYMAN1',
@@ -115,8 +116,21 @@ function createLottery(db, drawInteger = randomInt) {
   }
 
   const spinTransaction = db.transaction(input => {
-    if (!input || ['agencyCode', 'ownerName', 'phone', 'entryCode', 'address'].some(key => typeof input[key] !== 'string' || !input[key].trim())) {
+    if (!input || ['agencyCode', 'phone', 'entryCode', 'address', 'bankName', 'bankAccountNumber', 'bankAccountHolderName'].some(key => typeof input[key] !== 'string' || !input[key].trim())) {
       throw new LotteryError('MISSING_FIELDS', 'Vui lòng điền đầy đủ thông tin và chọn đại lý.');
+    }
+    let banks;
+    try { banks = loadBanks(); } catch {
+      throw new LotteryError('BANK_CATALOG_UNAVAILABLE', 'Danh mục ngân hàng chưa sẵn sàng. Vui lòng thử lại sau.', 503);
+    }
+    if (!banks.length) throw new LotteryError('BANK_CATALOG_UNAVAILABLE', 'Danh mục ngân hàng chưa được cấu hình.', 503);
+    const bank = banks.find(item => item.name === input.bankName.trim());
+    if (!bank) throw new LotteryError('INVALID_BANK', 'Vui lòng chọn ngân hàng trong danh sách.');
+    const accountNumber = input.bankAccountNumber.trim();
+    const accountHolder = input.bankAccountHolderName.trim();
+    if (accountNumber.length > 100 || /[\x00-\x1f\x7f]/.test(accountNumber)
+      || accountHolder.length > 200 || /[\x00-\x1f\x7f]/.test(accountHolder)) {
+      throw new LotteryError('INVALID_BANK_DETAILS', 'Thông tin tài khoản ngân hàng không hợp lệ.');
     }
     const phone = normalizePhone(input.phone);
     const entryCode = input.entryCode.trim().toUpperCase();
@@ -142,11 +156,11 @@ function createLottery(db, drawInteger = randomInt) {
     db.prepare(`INSERT INTO phone_participants (phone, spin_count) VALUES (?, ?)
       ON CONFLICT(phone) DO UPDATE SET spin_count = excluded.spin_count`).run(phone, spinNumber);
     const inserted = db.prepare(`INSERT INTO spin_logs
-      (spin_time, agency_code, agency_name, province, owner_name, phone, address, entry_code, serial_number,
+      (spin_time, agency_code, agency_name, province, bank_code, bank_name, bank_account_number, bank_account_holder_name, phone, address, entry_code, serial_number,
        prize_id, prize_tier, prize_name, prize_image, normalized_phone, spin_number, prize_code,
        rule_version, decision_reason, cycle_number, position_in_cycle, decision_a, decision_b, is_synced)
-      VALUES (datetime('now', 'localtime'), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)`)
-      .run(agency.code, agency.name, agency.province, input.ownerName.trim(), phone, agency.address, entryCode,
+      VALUES (datetime('now', 'localtime'), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)`)
+      .run(agency.code, agency.name, agency.province, bank.code, bank.name, accountNumber, accountHolder, phone, agency.address, entryCode,
         luckyCode.serial_number || '', prize.id, prize.prize_tier, prize.name, prize.image_url, phone,
         spinNumber, prize.code, RULE_VERSION, decision.reason, cycleNumber, positionInCycle, decision.countA, decision.countB);
     const consumed = db.prepare(`UPDATE lucky_codes SET status = 'used', used_at = datetime('now', 'localtime'),
