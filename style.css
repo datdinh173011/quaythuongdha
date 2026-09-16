@@ -41,8 +41,8 @@
 .header {
   background: linear-gradient(135deg, #009eda 0%, #29b6f6 100%);
   width: 100%;
-  padding: 12px 10px;
-  border-radius: 16px;
+  padding: 10px 8px;
+  border-radius: 14px;
   color: #ffffff;
   text-align: center;
   display: flex;
@@ -53,22 +53,22 @@
 }
 
 .header-1 {
-  font-size: clamp(1rem, 4vw, 1.25rem);
+  font-size: clamp(0.88rem, 3.4vw, 1.1rem);
   font-weight: 800;
   width: 100%;
-  margin: 0 auto 3px;
+  margin: 0 auto 2px;
   letter-spacing: 0.3px;
   line-height: 1.25;
   text-shadow: 0 1px 2px rgba(0, 40, 80, 0.2);
 }
 
 .header-2 {
-  font-size: clamp(0.75rem, 2.7vw, 0.85rem);
+  font-size: clamp(0.68rem, 2.3vw, 0.78rem);
   font-weight: 400;
   color: #e0f2fe;
   width: 95%;
   margin: 0 auto;
-  line-height: 1.35;
+  line-height: 1.3;
   font-style: italic;
 }
 
@@ -76,19 +76,19 @@
   width: 100%;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 7px;
 }
 
 #submit-form select,
 #submit-form input {
   width: 100%;
-  height: 42px;
+  height: 38px;
   background: #ffffff;
   border: 1.5px solid #cce3f5;
-  border-radius: 12px;
-  padding: 0 14px;
+  border-radius: 10px;
+  padding: 0 12px;
   color: #1e293b;
-  font-size: 16px; /* Giữ 16px chống tự động phóng to (zoom) trên iOS */
+  font-size: 14.5px;
   font-weight: 600;
   outline: none;
   transition: border-color 0.2s, box-shadow 0.2s, background-color 0.2s;
@@ -104,7 +104,7 @@
 
 #submit-form input::placeholder {
   color: #64748b;
-  font-size: 0.95rem;
+  font-size: 0.85rem;
   font-weight: 400;
 }
 
@@ -112,23 +112,23 @@
 .combobox-wrapper {
   position: relative;
   width: 100%;
-  height: 42px;
+  height: 38px;
 }
 
 .combobox-wrapper input {
   width: 100%;
   height: 100% !important;
-  padding-right: 36px !important;
+  padding-right: 32px !important;
   cursor: pointer;
 }
 
 .combobox-wrapper::after {
   content: "▼";
   position: absolute;
-  right: 14px;
+  right: 12px;
   top: 50%;
   transform: translateY(-50%);
-  font-size: 0.72rem;
+  font-size: 0.68rem;
   color: #009eda;
   pointer-events: none;
   transition: transform 0.2s;
@@ -143,10 +143,10 @@
   top: calc(100% + 4px);
   left: 0;
   width: 100%;
-  max-height: 200px;
+  max-height: 190px;
   background: #ffffff;
   border: 1.5px solid #00bbff;
-  border-radius: 12px;
+  border-radius: 10px;
   box-shadow: 0 12px 30px rgba(0, 50, 100, 0.25);
   overflow-y: auto;
   z-index: 10000;
@@ -158,9 +158,9 @@
 }
 
 .combobox-item {
-  padding: 10px 14px;
+  padding: 8px 12px;
   cursor: pointer;
-  font-size: 0.92rem;
+  font-size: 0.85rem;
   color: #1e293b;
   border-bottom: 1px solid #f1f5f9;
   text-align: left;
@@ -179,24 +179,24 @@
 }
 
 .combobox-empty {
-  padding: 12px 14px;
-  font-size: 0.88rem;
+  padding: 10px 12px;
+  font-size: 0.82rem;
   color: #94a3b8;
   text-align: center;
 }
 
 #submit-form button {
-  width: 84%;
-  height: 48px;
-  margin: 8px auto 2px;
+  width: 82%;
+  height: 44px;
+  margin: 6px auto 2px;
   color: #ffffff;
   background: linear-gradient(135deg, #00a2e8 0%, #00c3ff 100%);
   font-weight: 900;
-  font-size: 1.25rem;
+  font-size: clamp(1.05rem, 3.8vw, 1.18rem);
   letter-spacing: 0.5px;
   border: 2.5px solid #ffffff;
-  border-radius: 16px;
-  box-shadow: 0 6px 16px rgba(0, 158, 218, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.4);
+  border-radius: 14px;
+  box-shadow: 0 5px 15px rgba(0, 158, 218, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.4);
   cursor: pointer;
   transition: transform 0.15s, box-shadow 0.15s, filter 0.15s;
   display: flex;
@@ -218,16 +218,16 @@
 .search {
   width: 100%;
   background: linear-gradient(180deg, #fed747 0%, #f5a500 100%);
-  border-radius: 18px;
-  padding: 12px 12px 14px;
+  border-radius: 16px;
+  padding: 10px 10px 12px;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 7px;
   box-shadow: 0 6px 18px rgba(245, 165, 0, 0.28), inset 0 1px 0 rgba(255, 255, 255, 0.4);
 }
 
 .search p {
-  font-size: clamp(0.95rem, 3.8vw, 1.12rem);
+  font-size: clamp(0.85rem, 3.2vw, 1rem);
   font-weight: 900;
   color: #ffffff;
   text-align: center;
@@ -239,19 +239,19 @@
 #search-form {
   background-color: #ffffff;
   width: 100%;
-  height: 42px;
-  border-radius: 12px;
-  padding: 3px 4px 3px 12px;
+  height: 38px;
+  border-radius: 10px;
+  padding: 3px 4px 3px 10px;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
+  gap: 6px;
   box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.08);
 }
 
 .icon-phone {
-  width: 18px;
-  height: 18px;
+  width: 16px;
+  height: 16px;
   flex-shrink: 0;
   opacity: 0.85;
 }
@@ -261,7 +261,7 @@
   height: 100%;
   border: none;
   outline: none;
-  font-size: 15px;
+  font-size: 13.5px;
   color: #1e293b;
   font-weight: 600;
   background: transparent;
@@ -269,19 +269,19 @@
 
 #search-form input::placeholder {
   color: #94a3b8;
-  font-size: 0.92rem;
+  font-size: 0.82rem;
   font-weight: 400;
 }
 
 #search-form button {
-  height: 36px;
-  padding: 0 16px;
+  height: 32px;
+  padding: 0 14px;
   background: linear-gradient(135deg, #009eda 0%, #32c5f4 100%);
-  border-radius: 9px;
+  border-radius: 8px;
   border: none;
   color: #ffffff;
   font-weight: 800;
-  font-size: 0.92rem;
+  font-size: 0.84rem;
   cursor: pointer;
   white-space: nowrap;
   box-shadow: 0 2px 6px rgba(0, 158, 218, 0.3);
