@@ -30,7 +30,7 @@ Nguồn: [bộ máy thưởng](../lottery.js), [schema/migration](../lotterySche
 - Lượt thành công có hiệu lực: bản ghi `active`, chưa hủy; gồm legacy đã chuyển đổi.
 - Người tham gia: một dòng `phone_participants` theo SĐT; `spin_count` bằng số lượt có hiệu lực. Hủy hết có thể để lại dòng với `spin_count = 0`.
 - Lần xét vàng: chỉ lượt tuyệt đối 14/25, không dùng vị trí trong vòng để xét lại vàng.
-- Không khóa SĐT–đại lý. Tên/tỉnh/địa chỉ đại lý chụp từ database khi quay; tên chủ đại lý do người quay nhập.
+- Không khóa SĐT–đại lý. Tên/tỉnh/địa chỉ đại lý chụp từ database khi quay; thông tin ngân hàng do người quay nhập, tên/mã ngân hàng đối chiếu danh mục được duyệt. Không còn thu thập tên chủ đại lý.
 
 ```js
 const spinNumber = successfulSpinCount + 1;
@@ -107,7 +107,7 @@ Hủy thay đổi a/b tương lai, không sửa kết quả hoặc a/b đã lưu
 - Lịch sử chỉ trả active theo SĐT chuẩn hóa, gồm legacy đã chuyển đổi.
 - Admin xem active/void; `canUndo`/`undoReason` xét toàn bộ lịch sử, không chỉ 500 dòng/bộ lọc. Backend kiểm tra lại khi hủy.
 - Dashboard đếm SĐT có spin_count > 0 và a/b toàn chương trình. Excel có lượt tuyệt đối, vòng/vị trí, trạng thái/thời điểm/người hủy, phiên bản và dữ liệu quyết định; bỏ cột kỳ.
-- Worker dùng `spin-record-v2` (độc lập phiên bản luật), tối đa 100 dòng/lô; mỗi 120 giây, lần đầu sau 15 giây. Gửi cả active/void chờ đồng bộ.
+- Worker dùng `spin-record-v3` (độc lập phiên bản luật), tối đa 100 dòng/lô; mỗi 120 giây, lần đầu sau 15 giây. Gửi cả active/void chờ đồng bộ, gồm thông tin ngân hàng.
 - Sheets upsert theo ID, chỉ nhận nội dung có phiên bản cao hơn. Gửi trùng không thêm dòng. Phản hồi phải xác nhận đúng toàn bộ ID/phiên bản; lỗi/JSON sai/thiếu xác nhận không đánh dấu đã đồng bộ.
 - UPDATE xác nhận kiểm tra phiên bản hiện tại; phản hồi quay cũ không thể đánh dấu trạng thái hủy mới đã đồng bộ.
 - Giữ **25 cột**: cột 13 “Kỳ Thưởng (Không Sử Dụng)” ghi rỗng khi cập nhật, cột 14 “Lượt Tuyệt Đối”. Chấp nhận tiêu đề cũ “Kỳ Thưởng”/“Lượt Trong Kỳ”, không dịch dữ liệu. Dòng chưa đồng bộ lại có thể tạm còn nội dung cũ.
