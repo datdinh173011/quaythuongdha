@@ -344,7 +344,7 @@ function doPost(request) {
       if (!saved || record.record_version > saved.version) {
         var values = [
           record.id, record.spin_time, record.agency_code, record.agency_name, record.province,
-          record.bank_name, record.phone, record.address, record.entry_code, record.serial_number,
+          record.bank_code || record.bank_name, record.phone, record.address, record.entry_code, record.serial_number,
           record.prize_name, new Date(), '', record.spin_number || '',
           record.rule_version, record.prize_code, record.decision_reason, record.status,
           record.voided_at, record.voided_by, record.record_version, record.cycle_number || '',

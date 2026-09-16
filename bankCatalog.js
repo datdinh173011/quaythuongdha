@@ -8,7 +8,8 @@ function loadBanks() {
   const codes = new Set();
   const names = new Set();
   for (const bank of banks) {
-    if (!bank || typeof bank.code !== 'string' || !/^[A-Z0-9_-]{1,32}$/.test(bank.code)
+    if (!bank || typeof bank.code !== 'string' || !bank.code.trim() || bank.code !== bank.code.trim()
+      || !/^[A-Za-z0-9_ -]{1,50}$/.test(bank.code)
       || typeof bank.name !== 'string' || !bank.name.trim() || bank.name !== bank.name.trim()
       || bank.name.length > 200 || codes.has(bank.code) || names.has(bank.name)) {
       throw new Error('INVALID_BANK_CATALOG');

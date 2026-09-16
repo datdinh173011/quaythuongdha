@@ -130,7 +130,7 @@ async function main() {
       const entry = input(database);
       const original = fs.readFileSync(process.env.BANK_CATALOG_PATH, 'utf8');
       try {
-        for (const content of ['[]', '{}', 'invalid-json', '[{"code":"test","name":"Test"}]',
+        for (const content of ['[]', '{}', 'invalid-json', '[{"code":"test@bank!","name":"Test"}]',
           '[{"code":"TEST","name":"Test"},{"code":"TEST","name":"Other"}]',
           '[{"code":"ONE","name":"Test"},{"code":"TWO","name":"Test"}]']) {
           fs.writeFileSync(process.env.BANK_CATALOG_PATH, content);
@@ -619,7 +619,7 @@ async function main() {
       assert.equal((await sync()).count, 1);
       assert.equal(harness.rows[1][17], 'void');
       assert.equal(harness.rows[1][20], 2);
-      assert.equal(harness.rows[1][5], entry.bankName);
+      assert.equal(harness.rows[1][5], 'TEST');
       assert.equal(harness.rows[1][25], entry.bankAccountNumber);
       assert.equal(harness.rows[1][26], entry.bankAccountHolderName);
       harness.receive(oldPayload);

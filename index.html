@@ -34,7 +34,7 @@
         </div>
         <form action="submit" id="submit-form">
           <div class="combobox-wrapper" id="province-wrapper">
-            <input type="text" id="province-input" aria-label="Tỉnh/thành" placeholder="Tỉnh/thành (gõ để tìm...)" autocomplete="off" />
+            <input type="text" id="province-input" aria-label="Tỉnh/thành" placeholder="Tỉnh/thành (theo địa chính cũ)" autocomplete="off" />
             <input type="hidden" name="province" id="province" />
             <div class="combobox-dropdown" id="province-dropdown"></div>
           </div>
@@ -43,9 +43,11 @@
             <input type="hidden" name="agency-name" id="agency-name" />
             <div class="combobox-dropdown" id="agency-dropdown"></div>
           </div>
-          <select id="bank-name" aria-label="Tên ngân hàng" required>
-            <option value="">Chọn ngân hàng</option>
-          </select>
+          <div class="combobox-wrapper" id="bank-wrapper">
+            <input type="text" id="bank-input" aria-label="Tên ngân hàng" placeholder="Chọn ngân hàng (gõ để tìm...)" autocomplete="off" />
+            <input type="hidden" name="bank-name" id="bank-name" />
+            <div class="combobox-dropdown" id="bank-dropdown"></div>
+          </div>
           <input type="text" id="bank-account-number" aria-label="Số tài khoản ngân hàng" maxlength="100" placeholder="Số tài khoản ngân hàng" required />
           <input type="text" id="bank-account-holder-name" aria-label="Tên chủ tài khoản ngân hàng" maxlength="200" placeholder="Tên chủ tài khoản ngân hàng" required />
           <input type="tel" id="phone" aria-label="Số điện thoại" placeholder="Số điện thoại" required />

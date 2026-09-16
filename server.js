@@ -156,7 +156,7 @@ app.get('/api/history', (req, res) => {
     const cleanPhone = normalizePhone(phone);
     const rows = db.prepare(`
       SELECT id, agency_name, prize_name, prize_image, entry_code, serial_number, spin_time,
-        bank_name, bank_account_number, bank_account_holder_name,
+        bank_code, bank_name, bank_account_number, bank_account_holder_name,
         CASE WHEN bank_account_number IS NULL THEN NULL
           WHEN LENGTH(bank_account_number) <= 4 THEN '••••'
           ELSE '••••' || SUBSTR(bank_account_number, -4) END AS bank_account_number_masked,
