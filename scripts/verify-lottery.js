@@ -617,13 +617,16 @@ async function main() {
       assert.equal(database.prepare('SELECT is_synced FROM spin_logs LIMIT 1').get().is_synced, 0);
       mode = 'normal';
       assert.equal((await sync()).count, 1);
-      assert.equal(harness.rows[1][6], '[ĐÃ HỦY] MAYMAN2');
-      assert.equal(harness.rows[1][4], entry.address);
-      assert.equal(harness.rows[1][3], entry.phone);
+      assert.equal(harness.rows[1][9], '[ĐÃ HỦY] MAYMAN2');
+      assert.equal(harness.rows[1][7], entry.address);
+      assert.equal(harness.rows[1][6], entry.phone);
+      assert.equal(harness.rows[1][5], entry.bankAccountHolderName);
+      assert.equal(harness.rows[1][4], entry.bankAccountNumber);
+      assert.equal(harness.rows[1][3], entry.bankName);
       assert.equal(harness.rows[1][2], entry.agencyCode);
-      assert.equal(harness.rows[1].length, 8);
+      assert.equal(harness.rows[1].length, 11);
       harness.receive(oldPayload);
-      assert.equal(harness.rows[1][6], '[ĐÃ HỦY] MAYMAN2');
+      assert.equal(harness.rows[1][9], '[ĐÃ HỦY] MAYMAN2');
       harness.receive(captured);
       assert.equal(harness.rows.length, 2);
       engine.spin(entry);
@@ -635,8 +638,8 @@ async function main() {
       mode = 'normal';
       assert.equal((await sync()).success, true);
       assert.equal(harness.rows.length, 3);
-      assert.equal(harness.rows[2][6], 'MAYMAN2');
-      assert.equal(harness.rows[2][4], entry.address);
+      assert.equal(harness.rows[2][9], 'MAYMAN2');
+      assert.equal(harness.rows[2][7], entry.address);
       assert.equal(latest(database).address, entry.address);
       assert.notEqual(latest(database).address, '123 Nguyễn Trãi');
       assert.notEqual(harness.rows[1][0], harness.rows[2][0]);
@@ -652,19 +655,23 @@ async function main() {
       const harness = sheetHarness();
       const payload = { action: 'sync_spins', protocol: 'spin-record-v3', data: [record] };
       assert.equal(harness.receive(payload).status, 'success');
-      assert.equal(harness.rows[0].length, 8);
+      assert.equal(harness.rows[0].length, 11);
       assert.deepEqual(harness.rows[0], [
-        'ID', 'Thời Gian', 'Mã Đại Lý', 'Số Điện Thoại', 'Địa Chỉ', 'Mã Dự Thưởng', 'Mã Quà Trúng', 'Vị Trí Trong Vòng'
+        'ID', 'Thời Gian', 'Mã Đại Lý', 'Tên Ngân Hàng', 'Số Tài Khoản Ngân Hàng', 'Tên Chủ Tài Khoản Ngân Hàng',
+        'Số Điện Thoại', 'Địa Chỉ', 'Mã Dự Thưởng', 'Mã Quà Trúng', 'Vị Trí Trong Vòng'
       ]);
       assert.equal(harness.rows[1][0], record.id);
       assert.equal(harness.rows[1][2], record.agency_code || '');
-      assert.equal(harness.rows[1][3], record.phone);
-      assert.equal(harness.rows[1][4], record.address || '');
-      assert.equal(harness.rows[1][5], record.entry_code);
-      assert.equal(harness.rows[1][6], record.prize_code);
-      assert.equal(harness.rows[1][7], record.position_in_cycle);
+      assert.equal(harness.rows[1][3], record.bank_name || '');
+      assert.equal(harness.rows[1][4], record.bank_account_number || '');
+      assert.equal(harness.rows[1][5], record.bank_account_holder_name || '');
+      assert.equal(harness.rows[1][6], record.phone);
+      assert.equal(harness.rows[1][7], record.address || '');
+      assert.equal(harness.rows[1][8], record.entry_code);
+      assert.equal(harness.rows[1][9], record.prize_code);
+      assert.equal(harness.rows[1][10], record.position_in_cycle);
       assert.equal(harness.receive({ ...payload, protocol: 'spin-record-v2' }).status, 'error');
-      harness.rows[0][3] = 'Custom';
+      harness.rows[0][6] = 'Custom';
       assert.equal(harness.receive(payload).status, 'error');
       close(database);
     });

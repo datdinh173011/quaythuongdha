@@ -143,9 +143,71 @@ Dùng chức năng tải file mẫu trong Admin để giữ đúng định dạn
 
 Import đại lý cập nhật thông tin khi trùng mã đại lý; import mã dự thưởng bỏ qua mã đã tồn tại. Mã dự thưởng được trim và chuyển thành chữ hoa. Định dạng các cột mã/serial là text trong Excel để giữ số 0 ở đầu. Sau import, kiểm tra kết quả trong Admin; lịch sử quay có chức năng xuất `.xlsx` riêng.
 
+### 5.1. Các script quản trị & import dữ liệu qua CLI
+
+Dự án cung cấp sẵn các công cụ tự động hóa dạng script Node.js và câu lệnh SQL phục vụ nạp dữ liệu hàng loạt và chuẩn bị môi trường quay thưởng:
+
+#### 1. Import Danh Sách Đại Lý (`npm run db:import-agencies`)
+- **Dữ liệu nguồn**: `docs/import_daily.csv` (gồm 7.235 đại lý với 4 cột: `Mã khách hàng`, `Tên khách hàng`, `Tỉnh/TP`, `Địa chỉ`).
+- **Cơ chế**:
+  - Tự động sao lưu an toàn CSDL hiện tại vào thư mục `~/.quaythuongdha-backups/` trước khi thao tác.
+  - Xóa toàn bộ dữ liệu bảng `agencies` và reset ID tự tăng `sqlite_sequence` về 1.
+  - Tự động sinh file SQL hoàn chỉnh: `scripts/import_agencies.sql` (nhóm 200 dòng/lệnh INSERT, escape chuỗi an toàn).
+  - Nạp trực tiếp 7.235 đại lý vào SQLite `data.db`.
+- **Lệnh thực thi**:
+  ```sh
+  npm run db:import-agencies
+  ```
+- Hoặc nạp bằng client SQLite bên ngoài:
+  ```sh
+  sqlite3 data.db < scripts/import_agencies.sql
+  ```
+
+#### 2. Quản Lý Mã Dự Thưởng & Reset Lượt Quay (`npm run db:import-lucky-codes`)
+- **Dữ liệu nguồn**: `docs/import_lucky_codes.csv` (gồm 2.500 mã dự thưởng & serial mẫu chuẩn).
+- **Cơ chế**:
+  - Tự động tạo bản sao lưu an toàn CSDL `data.db`.
+  - Tạm thời gỡ bỏ các trigger khóa xóa (`protect_spin_delete`, `protect_used_lucky_code`).
+  - **Xóa sạch toàn bộ lượt quay** (`spin_logs`) và reset AUTOINCREMENT.
+  - **Xóa sạch người tham gia** (`phone_participants`) để các số điện thoại/đại lý có thể tham gia quay lại từ đầu.
+  - **Hoàn trả kho giải thưởng**: Đặt `used_quantity = 0`, `remaining_quantity = total_quantity` cho tất cả các giải trong `prizes`.
+  - **Xóa và nạp lại toàn bộ mã dự thưởng**: Nạp danh sách mã và serial mới từ CSV với trạng thái `unused`.
+  - Tái thiết lập các trigger bảo vệ tính toàn vẹn hệ thống.
+  - Tự động sinh file SQL hoàn chỉnh: `scripts/reset_and_import_lucky_codes.sql`.
+- **Lệnh thực thi**:
+  ```sh
+  # Reset lượt quay và nạp lại mã từ docs/import_lucky_codes.csv
+  npm run db:import-lucky-codes
+
+  # Hoặc nếu chỉ muốn xuất mã hiện có trong database ra file CSV:
+  node scripts/reset-and-import-lucky-codes.js --export-only
+  ```
+- Hoặc chạy trực tiếp file SQL:
+  ```sh
+  sqlite3 data.db < scripts/reset_and_import_lucky_codes.sql
+  ```
+
 ## 6. Đồng bộ Google Sheets (tùy chọn)
 
 Ứng dụng vẫn phục vụ quay thưởng khi chưa cấu hình webhook. Worker sẽ không gửi dữ liệu nếu không tìm thấy URL ở cả môi trường và database.
+
+### Cấu trúc cột dữ liệu đồng bộ (11 cột)
+
+Google Sheets được đồng bộ tự động theo thứ tự các cột sau (bổ sung 3 trường ngân hàng từ cột 4):
+
+| Cột | Tên Tiêu Đề | Định Dạng | Mô Tả |
+| :---: | :--- | :---: | :--- |
+| **1** | `ID` | Số | ID bản ghi lượt quay |
+| **2** | `Thời Gian` | Ngày/giờ | Thời điểm quay thưởng |
+| **3** | `Mã Đại Lý` | Text | Mã đại lý người chơi chọn |
+| **4** | `Tên Ngân Hàng` | Text | Ngân hàng người chơi chọn lúc quay |
+| **5** | `Số Tài Khoản Ngân Hàng` | Text (`@`) | Số tài khoản nhận thưởng (giữ số 0 ở đầu) |
+| **6** | `Tên Chủ Tài Khoản Ngân Hàng` | Text | Tên hiển thị chủ tài khoản ngân hàng |
+| **7** | `Số Điện Thoại` | Text (`@`) | Số điện thoại người chơi (giữ số 0 ở đầu) |
+| **8** | `Địa Chỉ` | Text | Địa chỉ người chơi nhập |
+| **9** | `Mã Dự Thưởng` | Text (`@`) | Mã thẻ cào/dự thưởng đã dùng |
+| **10** | `Mã Quà Trúng` | Text | Mã quà nhận được (nếu hủy: `[ĐÃ HỦY] ...`) |
+| **11** | `Vị Trí Trong Vòng` | Số | Vị trí lượt trong vòng 30 lượt |
 
 ### Thiết lập theo mẫu có sẵn
 
