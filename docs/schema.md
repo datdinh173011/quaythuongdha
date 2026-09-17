@@ -94,7 +94,7 @@ Không id riêng, không campaign_id, không agency_code và không giới hạn
 | `bank_account_holder_name` | TEXT | — | Tên hiển thị tài khoản do người quay nhập; legacy NULL |
 | `phone` | TEXT | — | Lượt mới lưu SĐT chuẩn hóa; legacy giữ chuỗi gốc |
 | `normalized_phone` | TEXT | — | SĐT chuẩn hóa, dùng mọi phép đếm/tra cứu/hủy |
-| `address` | TEXT | — | Địa chỉ đại lý chụp lúc quay, không lấy từ client để thay thế |
+| `address` | TEXT | — | Địa chỉ do đại lý/người quay nhập tại thời điểm quay |
 | `entry_code` | TEXT | — | Mã đã sử dụng; immutable sau ghi |
 | `serial_number` | TEXT | — | Serial chụp từ mã |
 

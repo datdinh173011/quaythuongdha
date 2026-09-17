@@ -53,7 +53,7 @@ async function main() {
     const entryCode = `VERIFY${++sequence}`;
     database.prepare("INSERT INTO lucky_codes (code, status) VALUES (?, 'unused')").run(entryCode);
     return { phone, agencyCode, entryCode, bankName: 'Ngân hàng kiểm thử', bankAccountNumber: '00123456789',
-      bankAccountHolderName: 'Nguyễn Văn Kiểm Thử', address: 'ignored snapshot', province: 'ignored', agencyName: 'ignored' };
+      bankAccountHolderName: 'Nguyễn Văn Kiểm Thử', address: 'Số 123 Đường Cầu Giấy, Hà Nội', province: 'ignored', agencyName: 'ignored' };
   }
   function advance(database, engine, phone, target) {
     let current = database.prepare('SELECT spin_count FROM phone_participants WHERE phone = ?').get(phone)?.spin_count || 0;
@@ -617,13 +617,13 @@ async function main() {
       assert.equal(database.prepare('SELECT is_synced FROM spin_logs LIMIT 1').get().is_synced, 0);
       mode = 'normal';
       assert.equal((await sync()).count, 1);
-      assert.equal(harness.rows[1][17], 'void');
-      assert.equal(harness.rows[1][20], 2);
-      assert.equal(harness.rows[1][5], 'TEST');
-      assert.equal(harness.rows[1][25], entry.bankAccountNumber);
-      assert.equal(harness.rows[1][26], entry.bankAccountHolderName);
+      assert.equal(harness.rows[1][6], '[ĐÃ HỦY] MAYMAN2');
+      assert.equal(harness.rows[1][4], entry.address);
+      assert.equal(harness.rows[1][3], entry.phone);
+      assert.equal(harness.rows[1][2], entry.agencyCode);
+      assert.equal(harness.rows[1].length, 8);
       harness.receive(oldPayload);
-      assert.equal(harness.rows[1][17], 'void');
+      assert.equal(harness.rows[1][6], '[ĐÃ HỦY] MAYMAN2');
       harness.receive(captured);
       assert.equal(harness.rows.length, 2);
       engine.spin(entry);
@@ -635,7 +635,10 @@ async function main() {
       mode = 'normal';
       assert.equal((await sync()).success, true);
       assert.equal(harness.rows.length, 3);
-      assert.equal(harness.rows[2][17], 'active');
+      assert.equal(harness.rows[2][6], 'MAYMAN2');
+      assert.equal(harness.rows[2][4], entry.address);
+      assert.equal(latest(database).address, entry.address);
+      assert.notEqual(latest(database).address, '123 Nguyễn Trãi');
       assert.notEqual(harness.rows[1][0], harness.rows[2][0]);
       harness.rows.push([...harness.rows[2]]);
       assert.equal(harness.receive(captured).status, 'error');
@@ -649,28 +652,19 @@ async function main() {
       const harness = sheetHarness();
       const payload = { action: 'sync_spins', protocol: 'spin-record-v3', data: [record] };
       assert.equal(harness.receive(payload).status, 'success');
-      harness.rows[0][5] = 'Chủ Đại Lý';
-      harness.rows[1][5] = 'Không được hiểu là ngân hàng';
-      assert.equal(harness.receive(payload).status, 'success');
-      assert.equal(harness.rows[0][5], 'Tên Ngân Hàng');
-      assert.equal(harness.rows[1][5], '');
+      assert.equal(harness.rows[0].length, 8);
+      assert.deepEqual(harness.rows[0], [
+        'ID', 'Thời Gian', 'Mã Đại Lý', 'Số Điện Thoại', 'Địa Chỉ', 'Mã Dự Thưởng', 'Mã Quà Trúng', 'Vị Trí Trong Vòng'
+      ]);
+      assert.equal(harness.rows[1][0], record.id);
+      assert.equal(harness.rows[1][2], record.agency_code || '');
+      assert.equal(harness.rows[1][3], record.phone);
+      assert.equal(harness.rows[1][4], record.address || '');
+      assert.equal(harness.rows[1][5], record.entry_code);
+      assert.equal(harness.rows[1][6], record.prize_code);
+      assert.equal(harness.rows[1][7], record.position_in_cycle);
       assert.equal(harness.receive({ ...payload, protocol: 'spin-record-v2' }).status, 'error');
-      harness.rows[0][12] = 'Kỳ Thưởng';
-      harness.rows[0][13] = 'Lượt Trong Kỳ';
-      harness.rows[1][12] = 'Lịch sử cũ';
-      harness.rows[1][13] = '';
-      harness.rows[1][20] = 1;
-      const prizeName = harness.rows[1][10];
-      assert.equal(harness.receive(payload).status, 'success');
-      assert.equal(harness.rows[0][12], 'Kỳ Thưởng (Không Sử Dụng)');
-      assert.equal(harness.rows[0][13], 'Lượt Tuyệt Đối');
-      assert.equal(harness.rows[1][12], '');
-      assert.equal(harness.rows[1][13], 1);
-      assert.equal(harness.rows[1][14], 'legacy');
-      assert.equal(harness.rows[1][10], prizeName);
-      assert.equal(harness.rows[1][20], record.record_version);
-      assert.equal(harness.rows[1].length, 27);
-      harness.rows[0][13] = 'Custom';
+      harness.rows[0][3] = 'Custom';
       assert.equal(harness.receive(payload).status, 'error');
       close(database);
     });

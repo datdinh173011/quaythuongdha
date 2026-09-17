@@ -313,51 +313,53 @@ function doPost(request) {
     if (!acquired) throw new Error('Sync busy; retry later');
     var sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
     var headers = [
-      'ID', 'Thời Gian', 'Mã Đại Lý', 'Tên Đại Lý', 'Tỉnh Thành', 'Tên Ngân Hàng',
-      'Số Điện Thoại', 'Địa Chỉ', 'Mã Dự Thưởng', 'Số Serial', 'Phần Quà Trúng', 'Thời Gian Đồng Bộ',
-      'Kỳ Thưởng (Không Sử Dụng)', 'Lượt Tuyệt Đối', 'Phiên Bản Luật', 'Mã Quà', 'Lý Do Nhận Giải',
-      'Trạng Thái', 'Thời Điểm Hủy', 'Người Hủy', 'Phiên Bản Bản Ghi',
-      'Vòng', 'Vị Trí Trong Vòng', 'a Trước Lượt', 'b Trước Lượt', 'Số Tài Khoản', 'Tên Chủ Tài Khoản'
+      'ID', 'Thời Gian', 'Mã Đại Lý', 'Số Điện Thoại', 'Địa Chỉ', 'Mã Dự Thưởng', 'Mã Quà Trúng', 'Vị Trí Trong Vòng'
     ];
     var existing = sheet.getLastRow() ? sheet.getDataRange().getValues() : [];
     if (existing.length) {
       existing[0].forEach(function(header, index) {
-        var legacyHeader = (index === 12 && header === 'Kỳ Thưởng') || (index === 13 && header === 'Lượt Trong Kỳ')
-          || (index === 5 && header === 'Chủ Đại Lý');
-        if (header !== '' && header !== headers[index] && !legacyHeader) throw new Error('Custom sheet headers require manual migration');
+        var legacyHeader = index < headers.length && ['ID', 'Thời Gian', 'Mã Đại Lý', 'Tên Đại Lý', 'Tỉnh Thành', 'Tên Ngân Hàng', 'Số Điện Thoại', 'Địa Chỉ', 'Mã Dự Thưởng', 'Kỳ Thưởng', 'Lượt Trong Kỳ', 'Chủ Đại Lý'].indexOf(header) !== -1;
+        if (header !== '' && index < headers.length && header !== headers[index] && !legacyHeader) {
+          throw new Error('Custom sheet headers require manual migration');
+        }
       });
+      if (existing[0].length > headers.length) {
+        sheet.getRange(1, headers.length + 1, 1, existing[0].length - headers.length).clearContent();
+      }
     }
     var rowsById = {};
     for (var rowIndex = 1; rowIndex < existing.length; rowIndex++) {
       var existingId = existing[rowIndex][0];
-      if (existingId === '') continue;
+      if (existingId === '' || existingId === null || existingId === undefined) continue;
       if (rowsById[existingId]) throw new Error('Duplicate sheet IDs require reconciliation');
-      rowsById[existingId] = { row: rowIndex + 1, version: Number(existing[rowIndex][20]) || 1 };
-    }
-    if (existing.length > 1 && existing[0][5] === 'Chủ Đại Lý') {
-      sheet.getRange(2, 6, existing.length - 1, 1).clearContent();
+      var isVoid = typeof existing[rowIndex][6] === 'string' && existing[rowIndex][6].indexOf('[ĐÃ HỦY]') === 0;
+      rowsById[existingId] = { row: rowIndex + 1, isVoid: isVoid, version: isVoid ? 2 : 1 };
     }
     sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
     var acknowledgements = [];
     payload.data.forEach(function(record) {
       var saved = rowsById[record.id];
-      if (!saved || record.record_version > saved.version) {
+      var shouldUpdate = !saved || (saved.isVoid && record.status === 'active' ? false : record.record_version >= saved.version);
+      if (shouldUpdate) {
+        var prizeText = record.prize_code || '';
+        if (record.status === 'void') {
+          prizeText = '[ĐÃ HỦY] ' + prizeText;
+        }
         var values = [
-          record.id, record.spin_time, record.agency_code, record.agency_name, record.province,
-          record.bank_code || record.bank_name, record.phone, record.address, record.entry_code, record.serial_number,
-          record.prize_name, new Date(), '', record.spin_number || '',
-          record.rule_version, record.prize_code, record.decision_reason, record.status,
-          record.voided_at, record.voided_by, record.record_version, record.cycle_number || '',
-          record.position_in_cycle || '', record.decision_a, record.decision_b,
-          record.bank_account_number, record.bank_account_holder_name
+          record.id, record.spin_time, record.agency_code, record.phone, record.address,
+          record.entry_code, prizeText, record.position_in_cycle || ''
         ].map(function(value) {
           if (value === null || value === undefined) return '';
           return typeof value === 'string' && /^[=+@-]/.test(value) ? "'" + value : value;
         });
         var destination = saved ? saved.row : sheet.getLastRow() + 1;
-        sheet.getRange(destination, 26, 1, 1).setNumberFormat('@');
+        sheet.getRange(destination, 4, 1, 1).setNumberFormat('@');
+        sheet.getRange(destination, 6, 1, 1).setNumberFormat('@');
         sheet.getRange(destination, 1, 1, headers.length).setValues([values]);
-        saved = { row: destination, version: record.record_version };
+        if (saved && existing.length > 0 && existing[0].length > headers.length) {
+          sheet.getRange(destination, headers.length + 1, 1, existing[0].length - headers.length).clearContent();
+        }
+        saved = { row: destination, version: record.record_version, isVoid: record.status === 'void' };
         rowsById[record.id] = saved;
       }
       acknowledgements.push({ id: record.id, record_version: saved.version });

@@ -160,7 +160,7 @@ function createLottery(db, drawInteger = randomInt) {
        prize_id, prize_tier, prize_name, prize_image, normalized_phone, spin_number, prize_code,
        rule_version, decision_reason, cycle_number, position_in_cycle, decision_a, decision_b, is_synced)
       VALUES (datetime('now', 'localtime'), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)`)
-      .run(agency.code, agency.name, agency.province, bank.code, bank.name, accountNumber, accountHolder, phone, agency.address, entryCode,
+      .run(agency.code, agency.name, agency.province, bank.code, bank.name, accountNumber, accountHolder, phone, input.address.trim(), entryCode,
         luckyCode.serial_number || '', prize.id, prize.prize_tier, prize.name, prize.image_url, phone,
         spinNumber, prize.code, RULE_VERSION, decision.reason, cycleNumber, positionInCycle, decision.countA, decision.countB);
     const consumed = db.prepare(`UPDATE lucky_codes SET status = 'used', used_at = datetime('now', 'localtime'),
