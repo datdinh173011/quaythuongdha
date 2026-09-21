@@ -3,7 +3,7 @@ const { RULE_VERSION, PRIZE_CODES } = require('./lotterySchema');
 const { loadBanks } = require('./bankCatalog');
 
 const SCHEDULE = [
-  null, 'MAYMAN2', 'MAYMAN2', 'MAYMAN1', 'MAYMAN1', 'CAOLON', 'MAYMAN1', 'MAYMAN1',
+  null, 'MAYMAN2', 'MAYMAN2', 'MAYMAN1', 'MAYMAN1', 'MAYMAN2', 'CAOLON', 'MAYMAN1',
   'BA', 'CAOLON', 'MAYMAN2', 'MAYMAN2', 'MAYMAN1', 'CAOLON', 'MAYMAN2', 'MAYMAN1',
   'MAYMAN1', 'CAOLON', 'MAYMAN1', 'MAYMAN2', 'MAYMAN1', 'CAOLON', 'MAYMAN1',
   'MAYMAN2', 'MAYMAN1', 'MAYMAN1', 'MAYMAN1', 'MAYMAN2', 'MAYMAN1', 'CAOLON', 'MAYMAN1',

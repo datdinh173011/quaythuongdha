@@ -40,9 +40,9 @@ const positionInCycle = ((spinNumber - 1) % 30) + 1;
 
 | Vị trí | Quà theo lịch | Mã quà |
 | --- | --- | --- |
-| 1, 2, 10, 11, 19, 23, 27 | 50k | `MAYMAN2` |
-| 3, 4, 6, 7, 12, 15, 16, 18, 20, 22, 24, 26, 28, 30 | 100k | `MAYMAN1` |
-| 5, 9, 13, 17, 21, 29 | D3K2 | `CAOLON` |
+| 1, 2, 5, 10, 11, 19, 23, 27 | 50k | `MAYMAN2` |
+| 3, 4, 7, 12, 15, 16, 18, 20, 22, 24, 26, 28, 30 | 100k | `MAYMAN1` |
+| 6, 9, 13, 17, 21, 29 | D3K2 | `CAOLON` |
 | 8 | 500k chỉ lượt tuyệt đối 8 nếu chưa có 500k; còn lại 100k | `BA` hoặc MAYMAN1 |
 | 14 | Lượt tuyệt đối 14 xét vàng 0,1 chỉ; vòng sau 50k | `NHI` hoặc MAYMAN2 |
 | 25 | Lượt tuyệt đối 25 xét vàng 0,5 chỉ; vòng sau 100k | `NHAT` hoặc MAYMAN1 |
@@ -97,7 +97,7 @@ Ví dụ: mốc 14 với a = 3, b = 1 được random; a = 4 hoặc 5 chỉ ti�
 
 Trong cùng transaction: kiểm tra lượt cuối; hoàn đúng `prize_id`/`prize_code`; giảm `used_quantity`; giải phóng mã đang trỏ tới ID cần hủy; giảm `spin_count`; đổi void, ghi thời điểm/người hủy, tăng `record_version`, đưa về chờ đồng bộ. Hủy lặp không hoàn lần hai; không xóa vật lý bằng chứng.
 
-Quay lại tạo ID mới cùng số lượt, dùng mã được hoàn hoặc mã khác. Không phục hồi quà cũ: lượt legacy từng nhận 100k nhưng được đánh số 5 khi quay lại nhận D3K2 theo luật hiện tại nếu còn kho. Mốc vàng random mới khi đủ điều kiện.
+Quay lại tạo ID mới cùng số lượt, dùng mã được hoàn hoặc mã khác. Không phục hồi quà cũ: lượt legacy từng nhận 100k nhưng được đánh số 6 khi quay lại nhận D3K2 theo luật hiện tại nếu còn kho. Mốc vàng random mới khi đủ điều kiện.
 
 Hủy thay đổi a/b tương lai, không sửa kết quả hoặc a/b đã lưu của người khác. Admin phải thu hồi/đối soát quà thực tế, không chỉ hoàn kho phần mềm. Xác thực admin hiện dùng mật khẩu chung; `voided_by = admin`, không phải tài khoản cá nhân.
 

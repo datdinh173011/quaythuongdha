@@ -45,7 +45,7 @@ async function main() {
   let checks = 0;
   let sequence = 0;
   const phoneFor = number => `09${String(number).padStart(8, '0')}`;
-  const expected = [null, 'MAYMAN2', 'MAYMAN2', 'MAYMAN1', 'MAYMAN1', 'CAOLON', 'MAYMAN1', 'MAYMAN1',
+  const expected = [null, 'MAYMAN2', 'MAYMAN2', 'MAYMAN1', 'MAYMAN1', 'MAYMAN2', 'CAOLON', 'MAYMAN1',
     'BA', 'CAOLON', 'MAYMAN2', 'MAYMAN2', 'MAYMAN1', 'CAOLON', 'MAYMAN2', 'MAYMAN1', 'MAYMAN1',
     'CAOLON', 'MAYMAN1', 'MAYMAN2', 'MAYMAN1', 'CAOLON', 'MAYMAN1', 'MAYMAN2', 'MAYMAN1',
     'MAYMAN1', 'MAYMAN1', 'MAYMAN2', 'MAYMAN1', 'CAOLON', 'MAYMAN1'];
@@ -398,13 +398,15 @@ async function main() {
       engine.undo(5);
       const replay = engine.spin({ ...input(migrated), entryCode: 'OLD4' });
       assert.equal(replay.spinNumber, 5);
-      assert.equal(latest(migrated).prize_code, 'CAOLON');
+      assert.equal(latest(migrated).prize_code, 'MAYMAN2');
       assert.equal(latest(migrated).rule_version, 'phone-v3');
       assert(latest(migrated).id > 6);
       close(migrated);
       const reopened = new Database(legacyPath);
       openDatabases.add(reopened);
-      assert.equal(createLottery(reopened).spin(input(reopened)).spinNumber, 6);
+      const replay6 = createLottery(reopened).spin(input(reopened));
+      assert.equal(replay6.spinNumber, 6);
+      assert.equal(latest(reopened).prize_code, 'CAOLON');
       close(reopened);
     });
     await check('Migration ngân hàng trên phone-v3 giữ active/void; chạy lại không reset kho', () => {
