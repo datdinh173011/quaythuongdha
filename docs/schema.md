@@ -88,10 +88,13 @@ Không id riêng, không campaign_id, không agency_code và không giới hạn
 | `agency_code` | TEXT | — | Mã đại lý được chọn |
 | `agency_name` | TEXT | — | Tên chụp từ danh mục |
 | `province` | TEXT | — | Tỉnh/thành chụp từ danh mục |
-| `owner_name` | TEXT | — | Tên chủ đại lý do người quay nhập |
+| `bank_code` | TEXT | — | Mã ngân hàng ổn định từ danh mục được duyệt; legacy NULL |
+| `bank_name` | TEXT | — | Tên ngân hàng chụp từ danh mục lúc quay; legacy NULL |
+| `bank_account_number` | TEXT | — | Số tài khoản dạng chuỗi, giữ số 0 đầu; legacy NULL |
+| `bank_account_holder_name` | TEXT | — | Tên hiển thị tài khoản do người quay nhập; legacy NULL |
 | `phone` | TEXT | — | Lượt mới lưu SĐT chuẩn hóa; legacy giữ chuỗi gốc |
 | `normalized_phone` | TEXT | — | SĐT chuẩn hóa, dùng mọi phép đếm/tra cứu/hủy |
-| `address` | TEXT | — | Địa chỉ đại lý chụp lúc quay, không lấy từ client để thay thế |
+| `address` | TEXT | — | Địa chỉ do đại lý/người quay nhập tại thời điểm quay |
 | `entry_code` | TEXT | — | Mã đã sử dụng; immutable sau ghi |
 | `serial_number` | TEXT | — | Serial chụp từ mã |
 
@@ -147,7 +150,7 @@ Code dùng admin_password và google_sheet_webhook_url; không đưa giá trị 
 
 | Trường | Kiểu SQL | Ràng buộc / mặc định | Mô tả |
 | --- | --- | --- | --- |
-| `version` | TEXT | PK; — | Marker chuyển đổi; hiện phone-only-v3 |
+| `version` | TEXT | PK; — | Marker chuyển đổi: phone-only-v3 và bank-details-v1 |
 | `applied_at` | TEXT | NN; CURRENT_TIMESTAMP | Thời điểm transaction migration hoàn thành |
 
 Độc lập với rule_version của lượt và SĐT. Marker dùng chặn startup database cũ và bảo đảm migration idempotent; không tạo kỳ hoặc reset bộ đếm. Chỉ ghi khi toàn bộ migration thành công.
@@ -190,7 +193,7 @@ Trigger không thay thế transaction nghiệp vụ. Quay/hủy phải cùng ki�
 | participantCount | Số SĐT có spin_count > 0 |
 | milestones[].eligible_count / gold_count | a/b hiện tại toàn chương trình, khác ảnh chụp a/b của từng lượt |
 
-Sheets giữ giao thức spin-record-v2, upsert theo ID/record_version. Cột 13 tương thích kỳ cũ để trống khi cập nhật, cột 14 là lượt tuyệt đối. SQLite chỉ đánh dấu đã đồng bộ khi phiên bản hiện tại khớp xác nhận; phản hồi cũ không ghi đè trạng thái mới.
+Sheets dùng giao thức spin-record-v3, upsert theo ID/record_version. Cột 6 là ngân hàng; cột 26/27 là số/tên chủ tài khoản. Cột 13 tương thích kỳ cũ để trống khi cập nhật, cột 14 là lượt tuyệt đối. SQLite chỉ đánh dấu đã đồng bộ khi phiên bản hiện tại khớp xác nhận; phản hồi cũ không ghi đè trạng thái mới.
 
 ## 5. Migration và vận hành
 

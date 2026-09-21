@@ -3,11 +3,12 @@ const path = require('path');
 const fs = require('fs');
 
 const { migrateLottery, isLotteryReady } = require('./lotterySchema');
+const { migrateCampaign, isCampaignReady } = require('./campaignSchema');
 const dbPath = process.env.DATABASE_PATH || path.join(__dirname, 'data.db');
 const db = new Database(dbPath);
 
 const existingSchema = db.prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'spin_logs'").get();
-if (existingSchema && !isLotteryReady(db)) {
+if (existingSchema && (!isLotteryReady(db) || !isCampaignReady(db))) {
   db.close();
   throw new Error('DATABASE_MIGRATION_REQUIRED: Dừng server/worker và chạy npm run db:migrate trước khi khởi động.');
 }
@@ -52,7 +53,10 @@ function initDatabase() {
       agency_code TEXT,
       agency_name TEXT,
       province TEXT,
-      owner_name TEXT,
+      bank_code TEXT,
+      bank_name TEXT,
+      bank_account_number TEXT,
+      bank_account_holder_name TEXT,
       phone TEXT,
       address TEXT,
       entry_code TEXT,
@@ -161,20 +165,20 @@ function initDatabase() {
       },
       {
         code: 'MAYMAN1',
-        prize_tier: 'GIẢI MAY MẮN',
+        prize_tier: 'GIẢI MAY MẮN 1',
         name: '01 lì xì trị giá 100.000 đồng',
         image_url: '/img/Artboard 23@2x.png',
-        total_quantity: 1000,
-        remaining_quantity: 1000,
+        total_quantity: 650,
+        remaining_quantity: 650,
         used_quantity: 0
       },
       {
         code: 'MAYMAN2',
-        prize_tier: 'GIẢI MAY MẮN',
+        prize_tier: 'GIẢI MAY MẮN 2',
         name: '01 lì xì trị giá 50.000 đồng',
         image_url: '/img/Artboard 23@2x.png',
-        total_quantity: 1000,
-        remaining_quantity: 1000,
+        total_quantity: 900,
+        remaining_quantity: 900,
         used_quantity: 0
       }
     ];
@@ -211,5 +215,6 @@ function initDatabase() {
 if (!existingSchema) {
   initDatabase();
   migrateLottery(db);
+  migrateCampaign(db);
 }
 module.exports = db;

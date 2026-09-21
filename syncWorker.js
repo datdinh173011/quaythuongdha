@@ -35,12 +35,12 @@ function createSheetSync(database, send = (...args) => fetch(...args)) {
       const response = await send(webhookUrl.trim(), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'sync_spins', protocol: 'spin-record-v2', data: logs }),
+        body: JSON.stringify({ action: 'sync_spins', protocol: 'spin-record-v3', data: logs }),
         signal: AbortSignal.timeout(30000),
       });
       if (!response.ok) throw new Error(`Google Webhook trả về HTTP ${response.status}`);
       const result = await response.json();
-      if (result?.status !== 'success' || result.protocol !== 'spin-record-v2' || !Array.isArray(result.acknowledgements)) {
+      if (result?.status !== 'success' || result.protocol !== 'spin-record-v3' || !Array.isArray(result.acknowledgements)) {
         throw new Error('Webhook chưa xác nhận đúng giao thức/phiên bản. Cần cập nhật Apps Script.');
       }
       const acknowledged = new Map();

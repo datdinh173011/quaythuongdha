@@ -24,6 +24,10 @@ const agencyInput = document.getElementById("agency-input");
 const agencyHidden = document.getElementById("agency-name");
 const agencyDropdown = document.getElementById("agency-dropdown");
 
+const bankInput = document.getElementById("bank-input");
+const bankHidden = document.getElementById("bank-name");
+const bankDropdown = document.getElementById("bank-dropdown");
+
 const submitForm = document.getElementById("submit-form");
 const searchForm = document.getElementById("search-form");
 const phoneSearchInput = document.getElementById("phone-search");
@@ -55,6 +59,7 @@ const alertMessage = document.getElementById("alert-message");
 
 let allProvinces = [];
 let currentAgencies = [];
+let allBanks = [];
 
 // Hàm loại bỏ dấu tiếng Việt để tìm kiếm thông minh (search không dấu)
 function removeVietnameseTones(str) {
@@ -83,6 +88,81 @@ async function loadProvinces() {
   } catch (err) {
     console.error("Lỗi khi tải tỉnh/thành:", err);
   }
+}
+
+// Tải danh mục ngân hàng
+async function loadBanks() {
+  try {
+    const res = await apiFetch('/api/banks');
+    const data = await res.json();
+    if (data.success && Array.isArray(data.banks)) {
+      allBanks = data.banks;
+      if (bankInput) {
+        bankInput.placeholder = "Chọn ngân hàng (gõ để tìm...)";
+      }
+    }
+  } catch (err) {
+    console.warn("Lỗi khi tải danh mục ngân hàng:", err);
+  }
+}
+
+// Render dropdown Ngân Hàng theo từ khóa gõ
+function renderBankDropdown(filterText = "") {
+  if (!bankDropdown) return;
+  const cleanFilter = removeVietnameseTones(filterText);
+  const matched = allBanks.filter(b => {
+    const codeNorm = removeVietnameseTones(b.code || "");
+    const nameNorm = removeVietnameseTones(b.name || "");
+    return codeNorm.includes(cleanFilter) || nameNorm.includes(cleanFilter);
+  });
+
+  bankDropdown.innerHTML = "";
+  if (matched.length === 0) {
+    bankDropdown.innerHTML = '<div class="combobox-empty">Không tìm thấy ngân hàng phù hợp</div>';
+  } else {
+    matched.forEach(b => {
+      const item = document.createElement("div");
+      item.className = "combobox-item";
+      item.innerHTML = `<strong>${b.code}</strong> <span style="font-size: 0.85rem; color: #475569;">- ${b.name}</span>`;
+      item.addEventListener("mousedown", (e) => {
+        e.preventDefault();
+        selectBank(b);
+      });
+      bankDropdown.appendChild(item);
+    });
+  }
+  bankDropdown.classList.add("active");
+}
+
+function selectBank(bank) {
+  if (bankInput) bankInput.value = bank.name;
+  if (bankHidden) bankHidden.value = bank.name;
+  if (bankDropdown) bankDropdown.classList.remove("active");
+}
+
+if (bankInput) {
+  bankInput.addEventListener("focus", () => {
+    renderBankDropdown(bankInput.value);
+  });
+  bankInput.addEventListener("input", () => {
+    if (bankHidden) bankHidden.value = "";
+    renderBankDropdown(bankInput.value);
+  });
+  bankInput.addEventListener("blur", () => {
+    setTimeout(() => {
+      if (bankDropdown) bankDropdown.classList.remove("active");
+      if (bankHidden && !bankHidden.value && bankInput.value) {
+        const valClean = removeVietnameseTones(bankInput.value);
+        const match = allBanks.find(b =>
+          removeVietnameseTones(b.code).toLowerCase() === valClean.toLowerCase() ||
+          removeVietnameseTones(b.name).toLowerCase() === valClean.toLowerCase()
+        );
+        if (match) {
+          selectBank(match);
+        }
+      }
+    }, 200);
+  });
 }
 
 // Render dropdown Tỉnh/Thành theo từ khóa gõ
@@ -213,10 +293,27 @@ submitForm.addEventListener("submit", async function (event) {
 
   const province = provinceHidden.value;
   const agencyVal = agencyHidden.value;
-  const ownerName = document.getElementById("owner-name").value.trim();
   const phone = document.getElementById("phone").value.trim();
   const address = document.getElementById("adress").value.trim();
   const entryCode = document.getElementById("entry-code").value.trim();
+  const bankNameInput = document.getElementById("bank-name");
+  let bankName = bankNameInput ? bankNameInput.value.trim() : '';
+  if (!bankName && bankInput && bankInput.value.trim()) {
+    const valClean = removeVietnameseTones(bankInput.value.trim());
+    const match = allBanks.find(b =>
+      removeVietnameseTones(b.code).toLowerCase() === valClean.toLowerCase() ||
+      removeVietnameseTones(b.name).toLowerCase() === valClean.toLowerCase()
+    );
+    if (match) {
+      bankName = match.name;
+      if (bankHidden) bankHidden.value = bankName;
+      bankInput.value = match.name;
+    }
+  }
+  const bankAccountInput = document.getElementById("bank-account-number");
+  const bankAccountNumber = bankAccountInput ? bankAccountInput.value.trim() : '';
+  const bankHolderInput = document.getElementById("bank-account-holder-name");
+  const bankAccountHolderName = bankHolderInput ? bankHolderInput.value.trim() : '';
 
   if (!province) {
     showAlert("Thông Báo", "Vui lòng chọn hoặc gõ tìm kiếm Tỉnh/thành của bạn.", "⚠️");
@@ -228,7 +325,16 @@ submitForm.addEventListener("submit", async function (event) {
     agencyInput.focus();
     return;
   }
-  if (!ownerName || !phone || !address || !entryCode) {
+  if (!bankName) {
+    showAlert("Thông Báo", "Vui lòng chọn hoặc gõ tìm kiếm Ngân hàng từ danh sách.", "⚠️");
+    if (bankInput) bankInput.focus();
+    return;
+  }
+  if (!bankAccountNumber || !bankAccountHolderName) {
+    showAlert("Thông Báo", "Vui lòng nhập đầy đủ số tài khoản và tên chủ tài khoản ngân hàng!", "⚠️");
+    return;
+  }
+  if (!phone || !address || !entryCode) {
     showAlert("Thông Báo", "Vui lòng nhập đầy đủ các trường thông tin!", "⚠️");
     return;
   }
@@ -251,10 +357,12 @@ submitForm.addEventListener("submit", async function (event) {
         province,
         agencyCode,
         agencyName,
-        ownerName,
         phone,
         address,
-        entryCode
+        entryCode,
+        bankName,
+        bankAccountNumber,
+        bankAccountHolderName
       })
     });
 
@@ -282,7 +390,7 @@ submitForm.addEventListener("submit", async function (event) {
       rewardSerialRow.style.display = 'none';
     }
     
-    rewardTimeText.textContent = `Lượt quay thứ ${result.spinNumber} · ${formatSpinTime(result.spinTime)}`;
+    rewardTimeText.textContent = formatSpinTime(result.spinTime);
 
     // Mở popup kết quả và bắn pháo hoa Confetti
     openRewardModal();
@@ -334,13 +442,27 @@ searchForm.addEventListener("submit", async function (event) {
         const tr = document.createElement("tr");
 
         const timeStr = formatSpinTime(item.spin_time);
+        const bankName = (item.bank_code || item.bank_name || '').trim();
+        const accountNumber = (item.bank_account_number || '').trim();
+        const accountHolder = (item.bank_account_holder_name || '').trim();
+
+        let bankInfoHtml = '';
+        if (bankName || accountNumber || accountHolder) {
+          const bankLine = [bankName, accountNumber].filter(Boolean).join(' ');
+          bankInfoHtml = `
+            <div class="history-bank-info" style="margin-top: 5px; font-size: 0.85rem; line-height: 1.35;">
+              ${bankLine ? `<div style="font-weight: 700; color: #1e293b;">${bankLine}</div>` : ''}
+              ${accountHolder ? `<div style="color: #475569; font-weight: 500;">${accountHolder}</div>` : ''}
+            </div>
+          `;
+        }
 
         tr.innerHTML = `
           <td style="text-align: center; font-weight: bold; color: #64748b;">${index + 1}</td>
           <td>
             <strong>${item.agency_name}</strong>
             <div style="font-size: 0.8rem; color: #0284c7;">Mã: ${item.entry_code || ''}</div>
-            <div style="font-size: 0.85rem; font-weight: 800;">Lượt quay thứ ${item.spin_number}</div>
+            ${bankInfoHtml}
           </td>
           <td>
             <div class="prize-cell">
@@ -426,4 +548,5 @@ function fireConfetti() {
 // Khởi chạy khi load xong DOM
 document.addEventListener("DOMContentLoaded", () => {
   loadProvinces();
+  loadBanks();
 });

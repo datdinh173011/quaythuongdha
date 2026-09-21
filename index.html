@@ -1,11 +1,12 @@
 <!doctype html>
-<html lang="en">
+<html lang="vi">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
     <title>Rút DHA Trúng Quà</title>
     <link rel="icon" type="image/png" href="./uploads/icon_bioamicus.png" />
     <link rel="stylesheet" href="./style.css" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
@@ -16,13 +17,13 @@
   <body>
     <div class="container">
       <div class="mobile-background">
-        <img src="img/mobile-background.png" alt="mobile-background" />
+        <img src="img/mobile-background.png" alt="Cơ cấu giải thưởng và thể lệ chương trình trên điện thoại" />
       </div>
       <div class="pc-background">
-        <img src="img/pc-background.png" alt="pc-background" />
+        <img src="img/pc-background.png" alt="Cơ cấu giải thưởng và thể lệ chương trình trên máy tính" />
       </div>
       <div class="pc-logo">
-        <img src="img/pc-logo.png" alt="pc-logo" />
+        <img src="img/pc-logo.png" alt="Logo chương trình" />
       </div>
       <div class="form">
         <div class="header">
@@ -33,19 +34,25 @@
         </div>
         <form action="submit" id="submit-form">
           <div class="combobox-wrapper" id="province-wrapper">
-            <input type="text" id="province-input" placeholder="Tỉnh/thành (gõ để tìm...)" autocomplete="off" />
+            <input type="text" id="province-input" aria-label="Tỉnh/thành" placeholder="Tỉnh/thành (theo địa chính cũ)" autocomplete="off" />
             <input type="hidden" name="province" id="province" />
             <div class="combobox-dropdown" id="province-dropdown"></div>
           </div>
           <div class="combobox-wrapper" id="agency-wrapper">
-            <input type="text" id="agency-input" placeholder="Tên đại lý (gõ để tìm...)" autocomplete="off" />
+            <input type="text" id="agency-input" aria-label="Tên đại lý" placeholder="Tên đại lý (gõ để tìm...)" autocomplete="off" />
             <input type="hidden" name="agency-name" id="agency-name" />
             <div class="combobox-dropdown" id="agency-dropdown"></div>
           </div>
-          <input type="text" id="owner-name" placeholder="Tên chủ đại lý" />
-          <input type="tel" id="phone" placeholder="Số điện thoại" />
-          <input type="text" id="adress" placeholder="Địa chỉ" />
-          <input type="text" id="entry-code" placeholder="Mã dự thưởng" />
+          <div class="combobox-wrapper" id="bank-wrapper">
+            <input type="text" id="bank-input" aria-label="Tên ngân hàng" placeholder="Chọn ngân hàng (gõ để tìm...)" autocomplete="off" />
+            <input type="hidden" name="bank-name" id="bank-name" />
+            <div class="combobox-dropdown" id="bank-dropdown"></div>
+          </div>
+          <input type="text" id="bank-account-number" aria-label="Số tài khoản ngân hàng" maxlength="100" placeholder="Số tài khoản ngân hàng" required />
+          <input type="text" id="bank-account-holder-name" aria-label="Tên chủ tài khoản ngân hàng" maxlength="200" placeholder="Tên chủ tài khoản ngân hàng" required />
+          <input type="tel" id="phone" aria-label="Số điện thoại" placeholder="Số điện thoại" required />
+          <input type="text" id="adress" aria-label="Địa chỉ" placeholder="Địa chỉ" required />
+          <input type="text" id="entry-code" aria-label="Mã dự thưởng" placeholder="Mã dự thưởng" required />
           <button type="submit">QUAY THƯỞNG</button>
         </form>
         <div class="search">
@@ -103,7 +110,7 @@
         <div class="modal-card modal-history-card">
           <div class="modal-header">
             <div>
-              <h2>LỊCH SỬ QUAY THƯỞNG</h2>
+              <h2>LỊCH SỬ QUAY SỐ TRÚNG THƯỞNG</h2>
               <p class="subtitle">Số điện thoại: <strong id="history-phone-title"></strong></p>
             </div>
             <button class="modal-close" onclick="closeHistoryModal()">&times;</button>
@@ -135,6 +142,7 @@
       <!-- MODAL THÔNG BÁO / LỖI -->
       <div id="modal-alert" class="modal-overlay">
         <div class="modal-card modal-alert-card">
+          <p class="popup-program-name">RÚT DHA TRÚNG QUÀ</p>
           <div id="alert-icon" class="alert-icon">⚠️</div>
           <h3 id="alert-title">Thông Báo</h3>
           <p id="alert-message">Nội dung thông báo</p>

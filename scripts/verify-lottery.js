@@ -9,7 +9,7 @@ const { Duplex } = require('node:stream');
 const { Script, createContext } = require('node:vm');
 const Database = require('better-sqlite3');
 const { createLottery, validatePrizeConfiguration, normalizePhone, milestoneCounts, undoEligibility, SCHEDULE } = require('../lottery');
-const { migrateLottery } = require('../lotterySchema');
+const { migrateCampaign: migrateLottery } = require('../campaignSchema');
 
 if (!isMainThread) {
   const db = new Database(workerData.dbPath);
@@ -33,6 +33,9 @@ if (!isMainThread) {
 
 async function main() {
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'dha-phone-v3-'));
+  const oldBankCatalog = process.env.BANK_CATALOG_PATH;
+  process.env.BANK_CATALOG_PATH = path.join(directory, 'test-banks.json');
+  fs.writeFileSync(process.env.BANK_CATALOG_PATH, JSON.stringify([{ code: 'TEST', name: 'Ngân hàng kiểm thử' }]));
   process.env.DATABASE_PATH = path.join(directory, 'api.db');
   const db = require('../database');
   const openDatabases = new Set([db]);
@@ -49,7 +52,8 @@ async function main() {
   function input(database, phone = phoneFor(1), agencyCode = 'DL001') {
     const entryCode = `VERIFY${++sequence}`;
     database.prepare("INSERT INTO lucky_codes (code, status) VALUES (?, 'unused')").run(entryCode);
-    return { phone, agencyCode, entryCode, ownerName: 'Verify', address: 'ignored snapshot', province: 'ignored', agencyName: 'ignored' };
+    return { phone, agencyCode, entryCode, bankName: 'Ngân hàng kiểm thử', bankAccountNumber: '00123456789',
+      bankAccountHolderName: 'Nguyễn Văn Kiểm Thử', address: 'Số 123 Đường Cầu Giấy, Hà Nội', province: 'ignored', agencyName: 'ignored' };
   }
   function advance(database, engine, phone, target) {
     let current = database.prepare('SELECT spin_count FROM phone_participants WHERE phone = ?').get(phone)?.spin_count || 0;
@@ -92,6 +96,56 @@ async function main() {
       database.pragma('foreign_keys = ON');
       return database;
     }
+
+    await check('Ngân hàng: bắt buộc, danh mục, giữ số 0/tên có dấu và khóa ảnh chụp', () => {
+      const database = fixture();
+      const engine = createLottery(database);
+      const entry = input(database);
+      for (const field of ['bankName', 'bankAccountNumber', 'bankAccountHolderName']) {
+        for (const value of [undefined, '', '  ', null, 123]) {
+          rollback(database, () => engine.spin({ ...entry, [field]: value }), 'MISSING_FIELDS');
+        }
+      }
+      rollback(database, () => engine.spin({ ...entry, bankName: 'Không trong danh mục' }), 'INVALID_BANK');
+      rollback(database, () => engine.spin({ ...entry, bankName: 'TEST' }), 'INVALID_BANK');
+      rollback(database, () => engine.spin({ ...entry, bankAccountNumber: '1'.repeat(101) }), 'INVALID_BANK_DETAILS');
+      rollback(database, () => engine.spin({ ...entry, bankAccountHolderName: 'a\nb' }), 'INVALID_BANK_DETAILS');
+      engine.spin({ ...entry, bankAccountHolderName: '  Nguyễn Thị Ánh  ', bankAccountNumber: '  00123456789  ' });
+      const log = latest(database);
+      assert.equal(log.bank_code, 'TEST');
+      assert.equal(log.bank_name, entry.bankName);
+      assert.equal(log.bank_account_number, '00123456789');
+      assert.equal(log.bank_account_holder_name, 'Nguyễn Thị Ánh');
+      assert.equal(Object.hasOwn(log, 'owner_name'), false);
+      for (const column of ['bank_code', 'bank_name', 'bank_account_number', 'bank_account_holder_name']) {
+        rollback(database, () => database.prepare(`UPDATE spin_logs SET ${column} = ? WHERE id = ?`).run('changed', log.id), 'SPIN_LOCKED');
+      }
+      close(database);
+    });
+
+    await check('Danh mục thiếu/trống/sai/trùng chặn quay và không tiêu thụ mã', () => {
+      const { loadBanks } = require('../bankCatalog');
+      const database = fixture();
+      const engine = createLottery(database);
+      const entry = input(database);
+      const original = fs.readFileSync(process.env.BANK_CATALOG_PATH, 'utf8');
+      try {
+        for (const content of ['[]', '{}', 'invalid-json', '[{"code":"test@bank!","name":"Test"}]',
+          '[{"code":"TEST","name":"Test"},{"code":"TEST","name":"Other"}]',
+          '[{"code":"ONE","name":"Test"},{"code":"TWO","name":"Test"}]']) {
+          fs.writeFileSync(process.env.BANK_CATALOG_PATH, content);
+          rollback(database, () => engine.spin(entry), 'BANK_CATALOG_UNAVAILABLE');
+          if (content !== '[]') assert.throws(loadBanks);
+        }
+        process.env.BANK_CATALOG_PATH += '.missing';
+        rollback(database, () => engine.spin(entry), 'BANK_CATALOG_UNAVAILABLE');
+      } finally {
+        process.env.BANK_CATALOG_PATH = path.join(directory, 'test-banks.json');
+        fs.writeFileSync(process.env.BANK_CATALOG_PATH, original);
+      }
+      assert.equal(engine.spin(entry).success, true);
+      close(database);
+    });
 
     await check('SĐT chuẩn hóa; đổi đại lý; cùng đại lý không gộp lượt', () => {
       const database = fixture();
@@ -313,14 +367,22 @@ async function main() {
       const migrated = new Database(legacyPath);
       openDatabases.add(migrated);
       assert.deepEqual(migrated.prepare('SELECT * FROM lucky_codes ORDER BY id').all(), originalCodes);
-      assert.deepEqual(migrated.prepare('SELECT id, remaining_quantity, used_quantity, total_quantity FROM prizes ORDER BY id').all(), originalStock);
+      for (const stock of originalStock) {
+        const updated = migrated.prepare('SELECT * FROM prizes WHERE id = ?').get(stock.id);
+        const total = { MAYMAN1: 650, MAYMAN2: 900 }[updated.code] ?? stock.total_quantity;
+        assert.equal(updated.total_quantity, total);
+        assert.equal(updated.used_quantity, stock.used_quantity);
+        assert.equal(updated.remaining_quantity, total - stock.used_quantity);
+      }
       for (const [index, log] of migrated.prepare('SELECT * FROM spin_logs ORDER BY id').all().entries()) {
         for (const [field, value] of Object.entries(originalLogs[index])) {
-          if (!['is_synced', 'synced_at'].includes(field)) assert.equal(log[field], value);
+          if (!['is_synced', 'synced_at', 'owner_name'].includes(field)) assert.equal(log[field], value);
         }
         assert.equal(log.spin_number, index + 1);
         assert.equal(log.rule_version, 'legacy');
-        assert.equal(log.record_version, 2);
+        assert.equal(log.record_version, 3);
+        assert.equal(log.bank_account_number, null);
+        assert.equal(Object.hasOwn(log, 'owner_name'), false);
         assert.equal(log.is_synced, 0);
       }
       assert(!migrated.prepare('PRAGMA table_info(spin_logs)').all().some(column => column.name === 'campaign_id'));
@@ -345,6 +407,55 @@ async function main() {
       assert.equal(createLottery(reopened).spin(input(reopened)).spinNumber, 6);
       close(reopened);
     });
+    await check('Migration ngân hàng trên phone-v3 giữ active/void; chạy lại không reset kho', () => {
+      const database = legacyFixture();
+      require('../lotterySchema').migrateLottery(database);
+      createLottery(database).undo(6);
+      database.exec('UPDATE spin_logs SET is_synced = 1');
+      const logs = database.prepare('SELECT * FROM spin_logs ORDER BY id').all();
+      const participants = database.prepare('SELECT * FROM phone_participants').all();
+      const codes = database.prepare('SELECT * FROM lucky_codes ORDER BY id').all();
+      migrateLottery(database);
+      for (const previous of logs) {
+        const current = database.prepare('SELECT * FROM spin_logs WHERE id = ?').get(previous.id);
+        for (const [field, value] of Object.entries(previous)) {
+          if (!['owner_name', 'record_version', 'is_synced', 'synced_at'].includes(field)) assert.equal(current[field], value);
+        }
+        assert.equal(current.record_version, previous.record_version + 1);
+        assert.equal(current.is_synced, 0);
+        assert.equal(current.bank_name, null);
+      }
+      assert.deepEqual(database.prepare('SELECT * FROM phone_participants').all(), participants);
+      assert.deepEqual(database.prepare('SELECT * FROM lucky_codes ORDER BY id').all(), codes);
+      const engine = createLottery(database);
+      engine.spin(input(database));
+      const state = snapshot(database);
+      migrateLottery(database);
+      assert.equal(snapshot(database), state);
+      engine.undo(latest(database).id);
+      close(database);
+    });
+
+    await check('Tổng 650/900: từ chối đã phát quá tổng, rollback DDL; cho phép bằng tổng', () => {
+      for (const [code, total] of Object.entries({ MAYMAN1: 650, MAYMAN2: 900 })) {
+        const database = legacyFixture();
+        require('../lotterySchema').migrateLottery(database);
+        database.prepare('UPDATE prizes SET used_quantity = ?, remaining_quantity = total_quantity - ? WHERE code = ?')
+          .run(total + 1, total + 1, code);
+        const before = database.serialize();
+        assert.throws(() => migrateLottery(database), /STOCK_RECONCILIATION_REQUIRED/);
+        assert.deepEqual(database.serialize(), before);
+        database.prepare('UPDATE prizes SET used_quantity = ?, remaining_quantity = total_quantity - ? WHERE code = ?')
+          .run(total, total, code);
+        migrateLottery(database);
+        const prize = database.prepare('SELECT * FROM prizes WHERE code = ?').get(code);
+        assert.equal(prize.total_quantity, total);
+        assert.equal(prize.used_quantity, total);
+        assert.equal(prize.remaining_quantity, 0);
+        close(database);
+      }
+    });
+
     await check('Migration chặn dữ liệu không an toàn và rollback cả DDL', () => {
       const faults = [
         "UPDATE spin_logs SET phone = 'invalid' WHERE id = 1",
@@ -466,7 +577,9 @@ async function main() {
       const sheet = {
         getLastRow: () => rows.length,
         getDataRange: () => ({ getValues: () => rows.map(row => [...row]) }),
-        getRange: (rowNumber, column, height, width) => ({ setValues: values => {
+        getRange: (rowNumber, column, height, width) => ({ setNumberFormat: () => {}, clearContent: () => {
+          for (let offset = 0; offset < height; offset++) rows[rowNumber - 1 + offset][column - 1] = '';
+        }, setValues: values => {
           assert.equal(values.length, height); assert.equal(values[0].length, width);
           rows[rowNumber - 1] ||= [];
           values[0].forEach((value, offset) => { rows[rowNumber - 1][column - 1 + offset] = value; });
@@ -495,7 +608,7 @@ async function main() {
         if (mode === 'undo-inflight') engine.undo(latest(database).id);
         if (mode === 'malformed') return { ok: true, json: async () => { throw new Error('Invalid JSON'); } };
         if (mode === 'error') return { ok: true, json: async () => ({ status: 'error' }) };
-        if (mode === 'missing-ack') return { ok: true, json: async () => ({ status: 'success', protocol: 'spin-record-v2', acknowledgements: [] }) };
+        if (mode === 'missing-ack') return { ok: true, json: async () => ({ status: 'success', protocol: 'spin-record-v3', acknowledgements: [] }) };
         return { ok: true, json: async () => result };
       });
       mode = 'undo-inflight';
@@ -504,10 +617,16 @@ async function main() {
       assert.equal(database.prepare('SELECT is_synced FROM spin_logs LIMIT 1').get().is_synced, 0);
       mode = 'normal';
       assert.equal((await sync()).count, 1);
-      assert.equal(harness.rows[1][17], 'void');
-      assert.equal(harness.rows[1][20], 2);
+      assert.equal(harness.rows[1][9], '[ĐÃ HỦY] MAYMAN2');
+      assert.equal(harness.rows[1][7], entry.address);
+      assert.equal(harness.rows[1][6], entry.phone);
+      assert.equal(harness.rows[1][5], entry.bankAccountHolderName);
+      assert.equal(harness.rows[1][4], entry.bankAccountNumber);
+      assert.equal(harness.rows[1][3], entry.bankName);
+      assert.equal(harness.rows[1][2], entry.agencyCode);
+      assert.equal(harness.rows[1].length, 11);
       harness.receive(oldPayload);
-      assert.equal(harness.rows[1][17], 'void');
+      assert.equal(harness.rows[1][9], '[ĐÃ HỦY] MAYMAN2');
       harness.receive(captured);
       assert.equal(harness.rows.length, 2);
       engine.spin(entry);
@@ -519,7 +638,10 @@ async function main() {
       mode = 'normal';
       assert.equal((await sync()).success, true);
       assert.equal(harness.rows.length, 3);
-      assert.equal(harness.rows[2][17], 'active');
+      assert.equal(harness.rows[2][9], 'MAYMAN2');
+      assert.equal(harness.rows[2][7], entry.address);
+      assert.equal(latest(database).address, entry.address);
+      assert.notEqual(latest(database).address, '123 Nguyễn Trãi');
       assert.notEqual(harness.rows[1][0], harness.rows[2][0]);
       harness.rows.push([...harness.rows[2]]);
       assert.equal(harness.receive(captured).status, 'error');
@@ -531,24 +653,25 @@ async function main() {
       migrateLottery(database);
       const record = database.prepare('SELECT * FROM spin_logs WHERE id = 1').get();
       const harness = sheetHarness();
-      const payload = { action: 'sync_spins', protocol: 'spin-record-v2', data: [record] };
+      const payload = { action: 'sync_spins', protocol: 'spin-record-v3', data: [record] };
       assert.equal(harness.receive(payload).status, 'success');
-      harness.rows[0][12] = 'Kỳ Thưởng';
-      harness.rows[0][13] = 'Lượt Trong Kỳ';
-      harness.rows[1][12] = 'Lịch sử cũ';
-      harness.rows[1][13] = '';
-      harness.rows[1][20] = 1;
-      const prizeName = harness.rows[1][10];
-      assert.equal(harness.receive(payload).status, 'success');
-      assert.equal(harness.rows[0][12], 'Kỳ Thưởng (Không Sử Dụng)');
-      assert.equal(harness.rows[0][13], 'Lượt Tuyệt Đối');
-      assert.equal(harness.rows[1][12], '');
-      assert.equal(harness.rows[1][13], 1);
-      assert.equal(harness.rows[1][14], 'legacy');
-      assert.equal(harness.rows[1][10], prizeName);
-      assert.equal(harness.rows[1][20], 2);
-      assert.equal(harness.rows[1].length, 25);
-      harness.rows[0][13] = 'Custom';
+      assert.equal(harness.rows[0].length, 11);
+      assert.deepEqual(harness.rows[0], [
+        'ID', 'Thời Gian', 'Mã Đại Lý', 'Tên Ngân Hàng', 'Số Tài Khoản Ngân Hàng', 'Tên Chủ Tài Khoản Ngân Hàng',
+        'Số Điện Thoại', 'Địa Chỉ', 'Mã Dự Thưởng', 'Mã Quà Trúng', 'Vị Trí Trong Vòng'
+      ]);
+      assert.equal(harness.rows[1][0], record.id);
+      assert.equal(harness.rows[1][2], record.agency_code || '');
+      assert.equal(harness.rows[1][3], record.bank_name || '');
+      assert.equal(harness.rows[1][4], record.bank_account_number || '');
+      assert.equal(harness.rows[1][5], record.bank_account_holder_name || '');
+      assert.equal(harness.rows[1][6], record.phone);
+      assert.equal(harness.rows[1][7], record.address || '');
+      assert.equal(harness.rows[1][8], record.entry_code);
+      assert.equal(harness.rows[1][9], record.prize_code);
+      assert.equal(harness.rows[1][10], record.position_in_cycle);
+      assert.equal(harness.receive({ ...payload, protocol: 'spin-record-v2' }).status, 'error');
+      harness.rows[0][6] = 'Custom';
       assert.equal(harness.receive(payload).status, 'error');
       close(database);
     });
@@ -579,6 +702,7 @@ async function main() {
         });
       }
       async function request(...args) { const response = await dispatch(...args); return { status: response.status, data: JSON.parse(response.body.toString()) }; }
+      assert.deepEqual((await request('/api/banks')).data.banks, [{ code: 'TEST', name: 'Ngân hàng kiểm thử' }]);
       const entry = input(db);
       const firstResponse = (await request('/api/spin', 'POST', entry)).data;
       assert.equal(firstResponse.cycleNumber, 1);
@@ -590,6 +714,10 @@ async function main() {
       const filtered = await request(`/api/admin/spins?q=${entry.entryCode}`, 'GET', undefined, true);
       assert.equal(filtered.data.spins[0].canUndo, false);
       assert.equal(filtered.data.spins[0].undoReason, 'NOT_LATEST_SPIN');
+      assert.equal(filtered.data.spins[0].bank_account_number, entry.bankAccountNumber);
+      assert.equal(filtered.data.spins[0].bank_account_holder_name, entry.bankAccountHolderName);
+      assert.equal(Object.hasOwn(filtered.data.spins[0], 'owner_name'), false);
+      assert.equal((await request(`/api/admin/spins?q=${encodeURIComponent(entry.bankAccountHolderName)}`, 'GET', undefined, true)).data.spins.length, 2);
       const newestOnly = await request(`/api/admin/spins?q=${secondEntry.entryCode}`, 'GET', undefined, true);
       assert.equal(newestOnly.data.spins[0].canUndo, true);
       assert.equal((await request(`/api/admin/spins/${first.id}`, 'DELETE', undefined, true)).status, 409);
@@ -599,6 +727,9 @@ async function main() {
       assert.equal(history.data.count, 1);
       assert.equal(history.data.history[0].position_in_cycle, 1);
       assert.equal(Object.hasOwn(history.data.history[0], 'campaign_id'), false);
+      assert.equal(history.data.history[0].bank_name, entry.bankName);
+      assert.equal(history.data.history[0].bank_account_number, entry.bankAccountNumber);
+      assert.equal(history.data.history[0].bank_account_holder_name, entry.bankAccountHolderName);
       assert.equal((await request('/api/spin', 'POST', secondEntry)).data.spinNumber, 2);
       assert.equal((await request('/api/admin/stats', 'GET', undefined, true)).data.stats.participantCount, 1);
       const prize = db.prepare("SELECT * FROM prizes WHERE code = 'NHAT'").get();
@@ -612,6 +743,10 @@ async function main() {
       assert(rows.some(row => row['Lượt tuyệt đối'] === 1));
       assert(rows.some(row => row['Lượt tuyệt đối'] === 2));
       assert.equal(Object.hasOwn(rows[0], 'Kỳ thưởng'), false);
+      assert.equal(rows[0]['Tên ngân hàng'], entry.bankName);
+      assert.equal(rows[0]['Số tài khoản ngân hàng'], '00123456789');
+      assert.equal(rows[0]['Tên chủ tài khoản ngân hàng'], entry.bankAccountHolderName);
+      assert.equal(Object.hasOwn(rows[0], 'Chủ đại lý'), false);
       assert.equal((await request('/api/admin/spins')).status, 401);
       for (const resource of ['/data.db', '/server.js', '/lottery.js', '/docs/google-sheets-sync.gs']) assert.equal((await dispatch(resource)).status, 404);
       for (const resource of ['/', '/main.js', '/style.css', '/admin/', '/admin/admin.js']) assert.equal((await dispatch(resource)).status, 200);
@@ -648,6 +783,8 @@ async function main() {
     for (const database of openDatabases) if (database.open) database.close();
     if (oldWebhook === undefined) delete process.env.GOOGLE_SHEET_WEBHOOK_URL;
     else process.env.GOOGLE_SHEET_WEBHOOK_URL = oldWebhook;
+    if (oldBankCatalog === undefined) delete process.env.BANK_CATALOG_PATH;
+    else process.env.BANK_CATALOG_PATH = oldBankCatalog;
     fs.rmSync(directory, { recursive: true, force: true });
   }
 }
