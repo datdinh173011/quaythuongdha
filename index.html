@@ -1,158 +1,158 @@
 <!doctype html>
 <html lang="vi">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-    <title>Rút DHA Trúng Quà</title>
-    <link rel="icon" type="image/png" href="./uploads/icon_bioamicus.png" />
-    <link rel="stylesheet" href="./style.css" />
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Nunito:ital,wght@0,200..1000;1,200..1000&display=swap"
-      rel="stylesheet"
-    />
-  </head>
-  <body>
-    <div class="container">
-      <div class="mobile-background">
-        <img src="img/mobile-background.png" alt="Cơ cấu giải thưởng và thể lệ chương trình trên điện thoại" />
-      </div>
-      <div class="pc-background">
-        <img src="img/pc-background.png" alt="Cơ cấu giải thưởng và thể lệ chương trình trên máy tính" />
-      </div>
-      <div class="pc-logo">
-        <img src="img/pc-logo.png" alt="Logo chương trình" />
-      </div>
-      <div class="form">
-        <div class="header">
-          <p class="header-1">MỜI BẠN NHẬP THÔNG TIN ĐỂ NHẬN THƯỞNG</p>
-          <i class="header-2">
-            (Bạn cần nhập chính xác thông tin để nhãn hàng liên hệ trao thưởng)
-          </i>
-        </div>
-        <form action="submit" id="submit-form">
-          <div class="combobox-wrapper" id="province-wrapper">
-            <input type="text" id="province-input" aria-label="Tỉnh/thành" placeholder="Tỉnh/thành (theo địa chính cũ)" autocomplete="off" />
-            <input type="hidden" name="province" id="province" />
-            <div class="combobox-dropdown" id="province-dropdown"></div>
-          </div>
-          <div class="combobox-wrapper" id="agency-wrapper">
-            <input type="text" id="agency-input" aria-label="Tên đại lý" placeholder="Tên đại lý (gõ để tìm...)" autocomplete="off" />
-            <input type="hidden" name="agency-name" id="agency-name" />
-            <div class="combobox-dropdown" id="agency-dropdown"></div>
-          </div>
-          <div class="combobox-wrapper" id="bank-wrapper">
-            <input type="text" id="bank-input" aria-label="Tên ngân hàng" placeholder="Chọn ngân hàng (gõ để tìm...)" autocomplete="off" />
-            <input type="hidden" name="bank-name" id="bank-name" />
-            <div class="combobox-dropdown" id="bank-dropdown"></div>
-          </div>
-          <input type="text" id="bank-account-number" aria-label="Số tài khoản ngân hàng" maxlength="100" placeholder="Số tài khoản ngân hàng" required />
-          <input type="text" id="bank-account-holder-name" aria-label="Tên chủ tài khoản ngân hàng" maxlength="200" placeholder="Tên chủ tài khoản ngân hàng" required />
-          <input type="tel" id="phone" aria-label="Số điện thoại" placeholder="Số điện thoại" required />
-          <input type="text" id="adress" aria-label="Địa chỉ" placeholder="Địa chỉ" required />
-          <input type="text" id="entry-code" aria-label="Mã dự thưởng" placeholder="Mã dự thưởng" required />
-          <button type="submit">QUAY THƯỞNG</button>
-        </form>
-        <div class="search">
-          <p>TRA CỨU LỊCH SỬ QUAY THƯỞNG</p>
-          <form action="search" id="search-form">
-            <img src="img/phone.svg" alt="phone" class="icon-phone" />
-            <input
-              type="tel"
-              id="phone-search"
-              placeholder="Nhập số điện thoại..."
-              required
-            />
-            <button type="submit">TRA CỨU</button>
-          </form>
-        </div>
-      </div>
 
-      <!-- POPUP 1: KẾT QUẢ QUAY THƯỞNG (THEO MẪU POPUP-REWARD) -->
-      <div id="modal-reward" class="modal-overlay">
-        <div class="gift-popup">
-          <div class="blue-background"></div>
-          <div class="logo"></div>
-          <div class="main-background">
-            <img id="reward-result-img" src="img/Giải Nhất.png" alt="Ảnh quà tặng" />
-            <div class="reward-content">
-              <div class="reward-content-1">CHÚC MỪNG BẠN ĐÃ TRÚNG</div>
-              <div class="reward-content-2" id="reward-tier-name"></div>
-              <div class="reward-content-3" id="reward-result-name"></div>
-              <div class="reward-info-box">
-                <div class="info-row">
-                  <span class="label">Đại lý:</span>
-                  <span id="reward-agency-text" class="agency-name"></span>
-                </div>
-                <div class="info-row">
-                  <span class="label">Mã dự thưởng:</span>
-                  <span id="reward-code-text" class="val badge-code"></span>
-                </div>
-                <div class="info-row" id="reward-serial-row" style="display: flex;">
-                  <span class="label">Số serial:</span>
-                  <span id="reward-serial-text" class="val"></span>
-                </div>
-                <div class="info-row">
-                  <span class="label">Thời gian:</span>
-                  <span id="reward-time-text" class="val"></span>
-                </div>
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title> Quay số 100% trúng thưởng</title>
+  <link rel="icon" type="image/png" href="./uploads/icon_bioamicus.png" />
+  <link rel="stylesheet" href="./style.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Nunito:ital,wght@0,200..1000;1,200..1000&display=swap"
+    rel="stylesheet" />
+</head>
+
+<body>
+  <div class="container">
+    <div class="mobile-background">
+      <img src="img/mobile-background.png" alt="Cơ cấu giải thưởng và thể lệ chương trình trên điện thoại" />
+    </div>
+    <div class="pc-background">
+      <img src="img/pc-background.png" alt="Cơ cấu giải thưởng và thể lệ chương trình trên máy tính" />
+    </div>
+    <div class="pc-logo">
+      <img src="img/pc-logo.png" alt="Logo chương trình" />
+    </div>
+    <div class="form">
+      <div class="header">
+        <p class="header-1">MỜI BẠN NHẬP THÔNG TIN ĐỂ NHẬN THƯỞNG</p>
+        <i class="header-2">
+          (Bạn cần nhập chính xác thông tin để nhãn hàng liên hệ trao thưởng)
+        </i>
+      </div>
+      <form action="submit" id="submit-form">
+        <div class="combobox-wrapper" id="province-wrapper">
+          <input type="text" id="province-input" aria-label="Tỉnh/thành" placeholder="Tỉnh/thành (trước sáp nhập)"
+            autocomplete="off" />
+          <input type="hidden" name="province" id="province" />
+          <div class="combobox-dropdown" id="province-dropdown"></div>
+        </div>
+        <div class="combobox-wrapper" id="agency-wrapper">
+          <input type="text" id="agency-input" aria-label="Tên đại lý" placeholder="Tên đại lý (gõ để tìm...)"
+            autocomplete="off" />
+          <input type="hidden" name="agency-name" id="agency-name" />
+          <div class="combobox-dropdown" id="agency-dropdown"></div>
+        </div>
+        <div class="combobox-wrapper" id="bank-wrapper">
+          <input type="text" id="bank-input" aria-label="Tên ngân hàng" placeholder="Chọn ngân hàng (gõ để tìm...)"
+            autocomplete="off" />
+          <input type="hidden" name="bank-name" id="bank-name" />
+          <div class="combobox-dropdown" id="bank-dropdown"></div>
+        </div>
+        <input type="text" id="bank-account-number" aria-label="Số tài khoản ngân hàng" maxlength="100"
+          placeholder="Số tài khoản ngân hàng" required />
+        <input type="text" id="bank-account-holder-name" aria-label="Tên chủ tài khoản ngân hàng" maxlength="200"
+          placeholder="Tên chủ tài khoản ngân hàng" required />
+        <input type="tel" id="phone" aria-label="Số điện thoại" placeholder="Số điện thoại" required />
+        <input type="text" id="adress" aria-label="Địa chỉ" placeholder="Địa chỉ" required />
+        <input type="text" id="entry-code" aria-label="Mã dự thưởng" placeholder="Mã dự thưởng" required />
+        <button type="submit">QUAY THƯỞNG</button>
+      </form>
+      <div class="search">
+        <p>TRA CỨU LỊCH SỬ QUAY THƯỞNG</p>
+        <form action="search" id="search-form">
+          <img src="img/phone.svg" alt="phone" class="icon-phone" />
+          <input type="tel" id="phone-search" placeholder="Nhập số điện thoại..." required />
+          <button type="submit">TRA CỨU</button>
+        </form>
+      </div>
+    </div>
+
+    <!-- POPUP 1: KẾT QUẢ QUAY THƯỞNG (THEO MẪU POPUP-REWARD) -->
+    <div id="modal-reward" class="modal-overlay">
+      <div class="gift-popup">
+        <div class="blue-background"></div>
+        <div class="logo"></div>
+        <div class="main-background">
+          <img id="reward-result-img" src="img/Giải Nhất.png" alt="Ảnh quà tặng" />
+          <div class="reward-content">
+            <div class="reward-content-1">CHÚC MỪNG BẠN ĐÃ TRÚNG</div>
+            <div class="reward-content-2" id="reward-tier-name"></div>
+            <div class="reward-content-3" id="reward-result-name"></div>
+            <div class="reward-info-box">
+              <div class="info-row">
+                <span class="label">Đại lý:</span>
+                <span id="reward-agency-text" class="agency-name"></span>
+              </div>
+              <div class="info-row">
+                <span class="label">Mã dự thưởng:</span>
+                <span id="reward-code-text" class="val badge-code"></span>
+              </div>
+              <div class="info-row" id="reward-serial-row" style="display: flex;">
+                <span class="label">Số serial:</span>
+                <span id="reward-serial-text" class="val"></span>
+              </div>
+              <div class="info-row">
+                <span class="label">Thời gian:</span>
+                <span id="reward-time-text" class="val"></span>
               </div>
             </div>
-            <button type="button" class="btn-confirm-reward" onclick="closeRewardModal()">XÁC NHẬN & QUAY TIẾP</button>
           </div>
+          <button type="button" class="btn-confirm-reward" onclick="closeRewardModal()">XÁC NHẬN & QUAY TIẾP</button>
         </div>
       </div>
-
-      <!-- POPUP 2: LỊCH SỬ QUAY THƯỞNG -->
-      <div id="modal-history" class="modal-overlay">
-        <div class="modal-card modal-history-card">
-          <div class="modal-header">
-            <div>
-              <h2>LỊCH SỬ QUAY SỐ TRÚNG THƯỞNG</h2>
-              <p class="subtitle">Số điện thoại: <strong id="history-phone-title"></strong></p>
-            </div>
-            <button class="modal-close" onclick="closeHistoryModal()">&times;</button>
-          </div>
-          <div class="history-table-wrapper" id="history-scroll-wrapper">
-            <table class="history-table">
-              <thead>
-                <tr>
-                  <th style="width: 10%;">STT</th>
-                  <th style="width: 35%;">Tên đại lý</th>
-                  <th style="width: 32%;">Phần thưởng</th>
-                  <th style="width: 23%;">Thời gian</th>
-                </tr>
-              </thead>
-              <tbody id="history-table-body">
-                <!-- Dữ liệu render động -->
-              </tbody>
-            </table>
-            <div id="history-empty" class="history-empty" style="display: none;">
-              <p>Chưa có lượt quay nào cho số điện thoại này.</p>
-            </div>
-          </div>
-          <div class="modal-footer">
-            <button type="button" class="btn-secondary" onclick="closeHistoryModal()">Đóng</button>
-          </div>
-        </div>
-      </div>
-
-      <!-- MODAL THÔNG BÁO / LỖI -->
-      <div id="modal-alert" class="modal-overlay">
-        <div class="modal-card modal-alert-card">
-          <p class="popup-program-name">RÚT DHA TRÚNG QUÀ</p>
-          <div id="alert-icon" class="alert-icon">⚠️</div>
-          <h3 id="alert-title">Thông Báo</h3>
-          <p id="alert-message">Nội dung thông báo</p>
-          <button type="button" class="btn-primary" onclick="closeAlertModal()">ĐÃ HIỂU</button>
-        </div>
-      </div>
-
-      <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.2/dist/confetti.browser.min.js"></script>
-      <script src="./main.js"></script>
     </div>
-  </body>
-</html>
 
+    <!-- POPUP 2: LỊCH SỬ QUAY THƯỞNG -->
+    <div id="modal-history" class="modal-overlay">
+      <div class="modal-card modal-history-card">
+        <div class="modal-header">
+          <div>
+            <h2>LỊCH SỬ QUAY SỐ TRÚNG THƯỞNG</h2>
+            <p class="subtitle">Số điện thoại: <strong id="history-phone-title"></strong></p>
+          </div>
+          <button class="modal-close" onclick="closeHistoryModal()">&times;</button>
+        </div>
+        <div class="history-table-wrapper" id="history-scroll-wrapper">
+          <table class="history-table">
+            <thead>
+              <tr>
+                <th style="width: 10%;">STT</th>
+                <th style="width: 35%;">Tên đại lý</th>
+                <th style="width: 32%;">Phần thưởng</th>
+                <th style="width: 23%;">Thời gian</th>
+              </tr>
+            </thead>
+            <tbody id="history-table-body">
+              <!-- Dữ liệu render động -->
+            </tbody>
+          </table>
+          <div id="history-empty" class="history-empty" style="display: none;">
+            <p>Chưa có lượt quay nào cho số điện thoại này.</p>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn-secondary" onclick="closeHistoryModal()">Đóng</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- MODAL THÔNG BÁO / LỖI -->
+    <div id="modal-alert" class="modal-overlay">
+      <div class="modal-card modal-alert-card">
+        <p class="popup-program-name">RÚT DHA TRÚNG QUÀ</p>
+        <div id="alert-icon" class="alert-icon">⚠️</div>
+        <h3 id="alert-title">Thông Báo</h3>
+        <p id="alert-message">Nội dung thông báo</p>
+        <button type="button" class="btn-primary" onclick="closeAlertModal()">ĐÃ HIỂU</button>
+      </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.2/dist/confetti.browser.min.js"></script>
+    <script src="./main.js"></script>
+  </div>
+</body>
+
+</html>
