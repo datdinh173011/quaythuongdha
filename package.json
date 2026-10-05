@@ -6,7 +6,8 @@
   "scripts": {
     "start": "node server.js",
     "db:migrate": "node scripts/migrate-database.js",
-    "db:import-agencies": "node scripts/import-agencies.js",
+    "db:import-agencies": "node scripts/import-daily.js",
+    "db:import-daily": "node scripts/import-daily.js",
     "db:import-lucky-codes": "node scripts/reset-and-import-lucky-codes.js",
     "verify:lottery": "node scripts/verify-lottery.js",
     "verify:form": "node scripts/verify-form.js",

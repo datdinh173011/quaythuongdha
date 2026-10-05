@@ -322,11 +322,11 @@ app.post('/api/admin/agencies/import', verifyAdmin, uploadMemory.single('file'),
         // Tự động nhận diện cột linh hoạt không phân biệt hoa thường/khoảng trắng thừa
         for (const key of Object.keys(row)) {
           const cleanKey = key.trim().toLowerCase();
-          if (['mã đại lý', 'ma dai ly', 'mã đl', 'ma dl', 'code', 'mã'].includes(cleanKey)) {
+          if (['mã đại lý', 'ma dai ly', 'mã đl', 'ma dl', 'code', 'mã', 'mã khách hàng', 'ma khach hang'].includes(cleanKey)) {
             code = row[key];
-          } else if (['tên đại lý', 'ten dai ly', 'tên đl', 'ten dl', 'tên nhà thuốc', 'tên shop', 'tên cửa hàng', 'name'].includes(cleanKey)) {
+          } else if (['tên đại lý', 'ten dai ly', 'tên đl', 'ten dl', 'tên nhà thuốc', 'tên shop', 'tên cửa hàng', 'name', 'tên khách hàng', 'ten khach hang'].includes(cleanKey)) {
             name = row[key];
-          } else if (['tỉnh/thành', 'tinh/thanh', 'tỉnh thành', 'tinh thanh', 'tỉnh', 'tinh', 'thành phố', 'thanh pho', 'province', 'city'].includes(cleanKey)) {
+          } else if (['tỉnh/thành', 'tinh/thanh', 'tỉnh thành', 'tinh thanh', 'tỉnh', 'tinh', 'thành phố', 'thanh pho', 'province', 'city', 'tỉnh/tp', 'tinh/tp'].includes(cleanKey)) {
             province = row[key];
           } else if (['địa chỉ', 'dia chi', 'địa chỉ đại lý', 'address'].includes(cleanKey)) {
             address = row[key];

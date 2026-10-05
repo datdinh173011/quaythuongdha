@@ -1,12 +1,10 @@
--- SQL Import Danh Sách Đại Lý từ docs/import_daily.csv
--- Thời gian sinh: 2026-09-17T16:21:12.838Z
--- Tổng số bản ghi: 7235
+-- SQL Import Danh Sách Đại Lý (UPSERT - KHÔNG XÓA DỮ LIỆU CŨ)
+-- File nguồn: import_daily.csv
+-- Thời gian sinh: 2026-10-05T10:37:39.894Z
+-- Tổng số bản ghi trong CSV: 7235
+-- Thêm mới: 0 | Cập nhật: 0 | Giữ nguyên: 7235
 
 BEGIN TRANSACTION;
-
--- 1. Xóa toàn bộ dữ liệu đại lý cũ và reset chỉ số AUTOINCREMENT
-DELETE FROM agencies;
-DELETE FROM sqlite_sequence WHERE name = 'agencies';
 
 INSERT INTO agencies (code, name, province, address) VALUES
   ('ETC.BV00019173', 'BV Nhi Đức', 'Hải Phòng', 'NT Quang Minh - 30 Việt Đức, Kiến An, Hải Phòng, Việt Nam, Việt Nam'),
@@ -208,7 +206,11 @@ INSERT INTO agencies (code, name, province, address) VALUES
   ('HCM.ETC.BV006', 'CÔNG TY TNHH DƯỢC MỸ PHẨM THANH TRUYỀN', 'Hồ Chí Minh', '12C2 Hà Huy Giáp, Tổ 14, Kp 3, Phường Thạnh Lộc, Quận 12, Thành phố Hồ Chí Minh, Việt Nam'),
   ('HCM.ETC.BV007', 'CÔNG TY TNHH DƯỢC PHẨM TƯỜNG KHANG', 'Hồ Chí Minh', 'Phường 8, Quận 11, Thành phố Hồ Chí Minh, Việt Nam'),
   ('HCM.ETC.NT001', 'Dược Sĩ Bông - Nhà Thuốc Nam Châu', 'Quảng Ngãi', 'Phường Trần Phú, Thành phố Quảng Ngãi, Tỉnh Quảng Ngãi, Việt Nam'),
-  ('HCM.ETC.NT002', 'Nhà Thuốc Orange Pharmacy', 'Phú Yên', 'Phường 3, Thành phố Tuy Hoà, Tỉnh Phú Yên, Việt Nam');
+  ('HCM.ETC.NT002', 'Nhà Thuốc Orange Pharmacy', 'Phú Yên', 'Phường 3, Thành phố Tuy Hoà, Tỉnh Phú Yên, Việt Nam')
+ON CONFLICT(code) DO UPDATE SET
+  name = excluded.name,
+  province = excluded.province,
+  address = excluded.address;
 INSERT INTO agencies (code, name, province, address) VALUES
   ('HCM.ETC.NT003', 'Nhà Thuốc Phúc Hưng', 'Quảng Ngãi', 'Phường Nghĩa Chánh, Thành phố Quảng Ngãi, Tỉnh Quảng Ngãi, Việt Nam'),
   ('HCM.ETC.NT004', 'Nhà Thuốc Việt Hà', 'Quảng Ngãi', 'Phường Nghĩa Lộ, Thành phố Quảng Ngãi, Tỉnh Quảng Ngãi, Việt Nam'),
@@ -409,7 +411,11 @@ INSERT INTO agencies (code, name, province, address) VALUES
   ('HCM.OTC.DL00024342', 'Hộ Kinh Doanh Mẹ và Bé Huy Anh', 'Bình Phước', 'QL 14, tổ 1, ấp 3, Phường Minh Thành, Thị xã Chơn Thành, Tỉnh Bình Phước, Việt Nam'),
   ('HCM.OTC.DL00024362', 'HỘ KINH DOANH TIẾN PHÁT', 'Hồ Chí Minh', '304/66/3F1 Bùi Đình Túy, Phường 12, Quận Bình Thạnh, Thành phố Hồ Chí Minh, Việt Nam'),
   ('HCM.OTC.DL00024373', 'Hộ Kinh Doanh Bắp Kids Thế Giới Mẹ Và Bé 2', 'Bình Phước', '1042 Phú Riềng Đỏ, Phường Tân Xuân, Thành phố Đồng Xoài, Tỉnh Bình Phước, Việt Nam'),
-  ('HCM.OTC.DL00024375', 'Hộ Kinh Doanh Mẹ Và Bé Thanh Thủy Đồng Xoài', 'Bình Phước', '127 Hùng Vương, Phường Tân Bình, Thành phố Đồng Xoài, Tỉnh Bình Phước, Việt Nam');
+  ('HCM.OTC.DL00024375', 'Hộ Kinh Doanh Mẹ Và Bé Thanh Thủy Đồng Xoài', 'Bình Phước', '127 Hùng Vương, Phường Tân Bình, Thành phố Đồng Xoài, Tỉnh Bình Phước, Việt Nam')
+ON CONFLICT(code) DO UPDATE SET
+  name = excluded.name,
+  province = excluded.province,
+  address = excluded.address;
 INSERT INTO agencies (code, name, province, address) VALUES
   ('HCM.OTC.DL00024395', 'SHOP MẸ VÀ BÉ KIM XUYẾN', 'An Giang', 'Tổ 5, ấp Vĩnh Hoà, Xã Lạc Quới, Huyện Tri Tôn, Tỉnh An Giang, Việt Nam'),
   ('HCM.OTC.DL00024418', 'Cty TNHH MTV Phong Phát', 'Bình Dương', 'Thửa đất 899 tờ bản đồ số 14, khu phố Tân Mỹ, Phường Tân Đông Hiệp, Thành phố Dĩ An, Tỉnh Bình Dương, Việt Nam'),
@@ -610,7 +616,11 @@ INSERT INTO agencies (code, name, province, address) VALUES
   ('HCM.OTC.DL1050', 'Shop Sữa Trung Vân', 'Bình Thuận', 'Chợ Đông Hà, Xã Đông Hà, Huyện Đức Linh, Tỉnh Bình Thuận, Việt Nam'),
   ('HCM.OTC.DL1051', 'Shop suri’ S Kid', 'Ninh Thuận', 'Đường 703, Hiệp Hoà, Phước Thuận, Huyện Ninh Phước, Tỉnh Ninh Thuận, Việt Nam, Xã Phước Thuận, Huyện Ninh Phước, Tỉnh Ninh Thuận, Việt Nam'),
   ('HCM.OTC.DL1052', 'Shop Susu', 'Khánh Hòa', '148 Cầu Dứa Phú Nông, Xã Vĩnh Ngọc, Thành phố Nha Trang, Tỉnh Khánh Hòa, Việt Nam'),
-  ('HCM.OTC.DL1053', 'Shop Tân Thái', 'Bình Thuận', '141 Võ Văn Kiệt, Xã Ngũ Phụng, Huyện Phú Quí, Tỉnh Bình Thuận, Việt Nam');
+  ('HCM.OTC.DL1053', 'Shop Tân Thái', 'Bình Thuận', '141 Võ Văn Kiệt, Xã Ngũ Phụng, Huyện Phú Quí, Tỉnh Bình Thuận, Việt Nam')
+ON CONFLICT(code) DO UPDATE SET
+  name = excluded.name,
+  province = excluded.province,
+  address = excluded.address;
 INSERT INTO agencies (code, name, province, address) VALUES
   ('HCM.OTC.DL1054', 'SHOP THÀNH ĐƯỢC', 'Bình Thuận', 'Kp5, Đường Lê Duẫn,, Thị trấn Liên Hương, Huyện Tuy Phong, Tỉnh Bình Thuận, Việt Nam'),
   ('HCM.OTC.DL1055', 'Shop Thanh Hiền', 'Đắk Nông', 'Ql 14, Thôn trung hoà, Xã Đắk Gằn, Huyện Đắk Mil, Tỉnh Đắk Nông, Việt Nam'),
@@ -811,7 +821,11 @@ INSERT INTO agencies (code, name, province, address) VALUES
   ('HCM.OTC.DL265', 'Siêu Thị Sữa BHG (Long Phước)', 'Bình Phước', 'Đường DT759, khu phố 5,, Phường Long Phước, Thị xã Phước Long, Tỉnh Bình Phước, Việt Nam'),
   ('HCM.OTC.DL266', 'Siêu Thị Sữa Kim Liên', 'Bình Phước', '497 nguyễn tất thành, kp6,, Phường Long Phước, Thị xã Phước Long, Tỉnh Bình Phước, Việt Nam'),
   ('HCM.OTC.DL267', 'Sữa DHA Bến Cát', 'Bình Dương', '172 Hùng Vương khu phố 1, mỹ phước bến cát,  bình dương,, Phường Mỹ Phước, Thành phố Bến Cát, Tỉnh Bình Dương, Việt Nam'),
-  ('HCM.OTC.DL268', 'Sữa Hồng Ngọc', 'Bình Dương', 'Chợ Quang Vinh 1, KP Long Bình,, Phường Khánh Bình, Thành phố Tân Uyên, Tỉnh Bình Dương, Việt Nam');
+  ('HCM.OTC.DL268', 'Sữa Hồng Ngọc', 'Bình Dương', 'Chợ Quang Vinh 1, KP Long Bình,, Phường Khánh Bình, Thành phố Tân Uyên, Tỉnh Bình Dương, Việt Nam')
+ON CONFLICT(code) DO UPDATE SET
+  name = excluded.name,
+  province = excluded.province,
+  address = excluded.address;
 INSERT INTO agencies (code, name, province, address) VALUES
   ('HCM.OTC.DL269', 'Sữa Hùng Phương', 'Bình Dương', '75/3A khu phố 3, phường An Phú, huyện Thuận An, tỉnh Bình Dương, Việt Nam, Phường An Phú, Thành phố Thuận An, Tỉnh Bình Dương, Việt Nam'),
   ('HCM.OTC.DL270', 'Sữa Ngọc Anh', 'Bình Dương', 'Số 70, Đường số 23, Khu 2,, Phường Hoà Phú, Thành phố Thủ Dầu Một, Tỉnh Bình Dương, Việt Nam'),
@@ -1012,7 +1026,11 @@ INSERT INTO agencies (code, name, province, address) VALUES
   ('HCM.OTC.DL440', 'Shop Bống', 'Kiên Giang', 'H10 - 37, Đường 3/2,, Phường An Hòa, Thành phố Rạch Giá, Tỉnh Kiên Giang, Việt Nam'),
   ('HCM.OTC.DL441', 'Shop Bống Kids', 'Kiên Giang', 'Số 202, đường Nguyễn Trung Trực, khu phố 11,, Phường Dương Đông, Thành phố Phú Quốc, Tỉnh Kiên Giang, Việt Nam'),
   ('HCM.OTC.DL442', 'Shop Cô Nhung', 'Kiên Giang', 'Số 20 Đường Lý Thường Kiệt, Khu phố 5,, Phường Dương Đông, Thành phố Phú Quốc, Tỉnh Kiên Giang, Việt Nam'),
-  ('HCM.OTC.DL443', 'Shop Cô Nút', 'Kiên Giang', 'Tổ 5 , Khu phố 2,, Thị trấn Thứ Ba, Huyện An Biên, Tỉnh Kiên Giang, Việt Nam');
+  ('HCM.OTC.DL443', 'Shop Cô Nút', 'Kiên Giang', 'Tổ 5 , Khu phố 2,, Thị trấn Thứ Ba, Huyện An Biên, Tỉnh Kiên Giang, Việt Nam')
+ON CONFLICT(code) DO UPDATE SET
+  name = excluded.name,
+  province = excluded.province,
+  address = excluded.address;
 INSERT INTO agencies (code, name, province, address) VALUES
   ('HCM.OTC.DL444', 'Shop Dâu Tây', 'Long An', '365, ấp Bình Tiền 2,, Thị trấn Đức Hòa, Huyện Đức Hòa, Tỉnh Long An, Việt Nam'),
   ('HCM.OTC.DL445', 'Shop Food4Kids', 'Kiên Giang', '354 Nguyễn Trung Trực,, Phường Vĩnh Lạc, Thành phố Rạch Giá, Tỉnh Kiên Giang, Việt Nam'),
@@ -1213,7 +1231,11 @@ INSERT INTO agencies (code, name, province, address) VALUES
   ('HCM.OTC.DL645', 'Shop  misu mart', 'Quảng Nam', 'Đường 33 trần phú, Phường Điện Thắng Trung, Thị xã Điện Bàn, Tỉnh Quảng Nam, Việt Nam'),
   ('HCM.OTC.DL646', 'SHOP 3BMILK', 'Gia Lai', '80 Quang Trung,, Thị trấn Phú Hòa, Huyện Chư Păh, Tỉnh Gia Lai, Việt Nam'),
   ('HCM.OTC.DL647', 'Shop Acafe', 'Quảng Nam', '150 điện biên phủ,, Thị trấn Nam Phước, Huyện Duy Xuyên, Tỉnh Quảng Nam, Việt Nam'),
-  ('HCM.OTC.DL648', 'Shop Anna', 'Kon Tum', '502 Nguyễn Huệ, Tổ 1,, Phường Thống Nhất, Thành phố Kon Tum, Tỉnh Kon Tum, Việt Nam');
+  ('HCM.OTC.DL648', 'Shop Anna', 'Kon Tum', '502 Nguyễn Huệ, Tổ 1,, Phường Thống Nhất, Thành phố Kon Tum, Tỉnh Kon Tum, Việt Nam')
+ON CONFLICT(code) DO UPDATE SET
+  name = excluded.name,
+  province = excluded.province,
+  address = excluded.address;
 INSERT INTO agencies (code, name, province, address) VALUES
   ('HCM.OTC.DL649', 'Shop Baby Hồ Ngọc', 'Bình Định', '56 Nguyễn Mân,, Phường Nhơn Bình, Thành phố Quy Nhơn, Tỉnh Bình Định, Việt Nam'),
   ('HCM.OTC.DL650', 'Shop Baby Home', 'Quảng Ngãi', 'Thôn 4, Xã Đức Tân, Huyện Mộ Đức, Tỉnh Quảng Ngãi, Việt Nam'),
@@ -1414,7 +1436,11 @@ INSERT INTO agencies (code, name, province, address) VALUES
   ('HCM.OTC.DL855', 'Cửa Hàng Mẹ Và Bé Mặt Trời Nhỏ', 'Đắk Lắk', '458 giải phóng, Thị trấn Phước An, Huyện Krông Pắc, Tỉnh Đắk Lắk, Việt Nam'),
   ('HCM.OTC.DL856', 'Cửa hàng mẹ và bé Na Na', 'Lâm Đồng', '116 Tân Tiến, Đạ Đờn, Lâm Hà, Lâm Đồng (ngã ba Đạ Đờn), Xã Đạ Đờn, Huyện Lâm Hà, Tỉnh Lâm Đồng, Việt Nam'),
   ('HCM.OTC.DL857', 'Cửa Hàng Mẹ Và Bé Sóc Nâu', 'Bình Thuận', '60 Đại Thành, Xã Mương Mán, Huyện Hàm Thuận Nam, Tỉnh Bình Thuận, Việt Nam'),
-  ('HCM.OTC.DL858', 'Cửa hàng Mẹ Và Bé Vyvy Kids', 'Ninh Thuận', 'Đường 702, Xã Nhơn Hải, Huyện Ninh Hải, Tỉnh Ninh Thuận, Việt Nam');
+  ('HCM.OTC.DL858', 'Cửa hàng Mẹ Và Bé Vyvy Kids', 'Ninh Thuận', 'Đường 702, Xã Nhơn Hải, Huyện Ninh Hải, Tỉnh Ninh Thuận, Việt Nam')
+ON CONFLICT(code) DO UPDATE SET
+  name = excluded.name,
+  province = excluded.province,
+  address = excluded.address;
 INSERT INTO agencies (code, name, province, address) VALUES
   ('HCM.OTC.DL859', 'Cửa Hàng Siêu Thị Xanh 2', 'Đắk Lắk', '94 Chu Văn An, TDP 2, Thị trấn Buôn Trấp, Huyện Krông A Na, Tỉnh Đắk Lắk, Việt Nam'),
   ('HCM.OTC.DL860', 'Cửa Hàng Sữa Thảo Nguyên', 'Bình Thuận', 'Tổ 2, Thôn 1, Xã Nam Chính, Huyện Đức Linh, Tỉnh Bình Thuận, Việt Nam'),
@@ -1615,7 +1641,11 @@ INSERT INTO agencies (code, name, province, address) VALUES
   ('OTC.DL00019535', 'Shop Nhà Mậm', 'Thanh Hóa', 'Cổng phía Nam chợ , Thị trấn Nga Sơn, Huyện Nga Sơn, Tỉnh Thanh Hóa, Việt Nam, Thị trấn Nga Sơn, Huyện Nga Sơn, Tỉnh Thanh Hóa, Việt Nam'),
   ('OTC.DL00019539', 'Suabim.com Cẩm Khê', 'Phú Thọ', 'Số nhà 182, Thị trấn Cẩm Khê, Huyện Cẩm Khê, Tỉnh Phú Thọ, Việt Nam'),
   ('OTC.DL00019548', 'Siêu Thị Mẹ Và Bé Bảo An', 'Hải Dương', 'Cạnh Cây Xăng Bình Dân, Xã Hòa Bình, Huyện Kim Thành, Tỉnh Hải Dương, Việt Nam'),
-  ('OTC.DL00019552', 'Shop Hương Baby', 'Sơn La', '172B Trường Chinh, Phường Quyết Thắng, Thành phố Sơn La, Tỉnh Sơn La, Việt Nam');
+  ('OTC.DL00019552', 'Shop Hương Baby', 'Sơn La', '172B Trường Chinh, Phường Quyết Thắng, Thành phố Sơn La, Tỉnh Sơn La, Việt Nam')
+ON CONFLICT(code) DO UPDATE SET
+  name = excluded.name,
+  province = excluded.province,
+  address = excluded.address;
 INSERT INTO agencies (code, name, province, address) VALUES
   ('OTC.DL00019557', 'Phương Nhung Mart', 'Hải Phòng', 'thôn quán bơ, Xã Du Lễ, Huyện Kiến Thuỵ, Thành phố Hải Phòng, Việt Nam, Việt Nam'),
   ('OTC.DL00019562', 'Bún Baby', 'Hải Dương', 'Đường 391, thôn Văn Vật, Xã Nguyên Giáp, Huyện Tứ Kỳ, Tỉnh Hải Dương, Việt Nam'),
@@ -1816,7 +1846,11 @@ INSERT INTO agencies (code, name, province, address) VALUES
   ('OTC.DL00022513', 'Shop Monchi', 'Bắc Ninh', 'Số 22 lê quang đạo, Phường Đông Ngàn, Thành phố Từ Sơn, Tỉnh Bắc Ninh, Việt Nam'),
   ('OTC.DL00022527', 'Shop Kim Nhung Care', 'Hà Nội', '23A Ngõ 113 Vĩnh Khang, Xã Ngọc Hồi, Huyện Thanh Trì, Thành phố Hà Nội, Việt Nam'),
   ('OTC.DL00022531', 'Siêu thị mẹ và bé Tú Anh', 'Bắc Giang', 'Dương Huy, Xã Trung Sơn, Thị xã Thị Xã Việt Yên, Tỉnh Bắc Giang, Việt Nam'),
-  ('OTC.DL00022562', 'Tạp hóa Hương Phùng', 'Quảng Bình', 'Chòm 2, Thôn Thanh Sơn, Xã Quảng Thanh, Huyện Quảng Trạch, Tỉnh Quảng Bình, Việt Nam');
+  ('OTC.DL00022562', 'Tạp hóa Hương Phùng', 'Quảng Bình', 'Chòm 2, Thôn Thanh Sơn, Xã Quảng Thanh, Huyện Quảng Trạch, Tỉnh Quảng Bình, Việt Nam')
+ON CONFLICT(code) DO UPDATE SET
+  name = excluded.name,
+  province = excluded.province,
+  address = excluded.address;
 INSERT INTO agencies (code, name, province, address) VALUES
   ('OTC.DL00022566', 'Shop Mít Na Xiêm', 'Bắc Ninh', 'Tháp Dương, Xã Trung Kênh, Huyện Lương Tài, Tỉnh Bắc Ninh, Việt Nam'),
   ('OTC.DL00022575', 'Sữa bỉm.com Kiến An', 'Hải Phòng', '267 trường chinh, Phường Đồng Hoà, Quận Kiến An, Thành phố Hải Phòng, Việt Nam'),
@@ -2017,7 +2051,11 @@ INSERT INTO agencies (code, name, province, address) VALUES
   ('OTC.DL081', 'Sơn Trang Baby', 'Hải Dương', 'Đường 25/5, khu 1,, Thị trấn Thanh Hà, Huyện Thanh Hà, Tỉnh Hải Dương, Việt Nam'),
   ('OTC.DL082', 'Shop 286', 'Bắc Ninh', 'Đối diện 624 Thiên Đức, Phường Vạn An, Thành phố Bắc Ninh, Tỉnh Bắc Ninh, Việt Nam'),
   ('OTC.DL083', 'Momi baby', 'Bắc Giang', '135 Thanh Xuân, Thị trấn Đồi Ngô, Huyện Lục Nam, Tỉnh Bắc Giang, Việt Nam'),
-  ('OTC.DL084', 'Shop Duyên baby', 'Cao Bằng', 'Tổ 1, Phường Sông Bằng, Thành phố Cao Bằng, Tỉnh Cao Bằng, Việt Nam');
+  ('OTC.DL084', 'Shop Duyên baby', 'Cao Bằng', 'Tổ 1, Phường Sông Bằng, Thành phố Cao Bằng, Tỉnh Cao Bằng, Việt Nam')
+ON CONFLICT(code) DO UPDATE SET
+  name = excluded.name,
+  province = excluded.province,
+  address = excluded.address;
 INSERT INTO agencies (code, name, province, address) VALUES
   ('OTC.DL085', 'Shop Lebebee', 'Bắc Giang', '317_319 Nguyễn Thị Lưu 2, Phường Ngô Quyền, Thành phố Bắc Giang, Tỉnh Bắc Giang, Việt Nam'),
   ('OTC.DL086', 'Shop nhật', 'Hà Nội', 'Số 11 galaxy 5-69 tố hữu,, Phường Vạn Phúc, Quận Hà Đông, Thành phố Hà Nội, Việt Nam'),
@@ -2218,7 +2256,11 @@ INSERT INTO agencies (code, name, province, address) VALUES
   ('OTC.DL1165', 'Siêu Thị mẹ và bé con yêu', 'Hà Nội', 'Số 81 phố Hoàng Công,, Phường Kiến Hưng, Quận Hà Đông, Thành phố Hà Nội, Việt Nam'),
   ('OTC.DL1166', 'Shop Bé Ơi', 'Hà Nội', 'Số 8 Lô TT04, ngõ 2 phố Hàm Nghi,, Phường Mỹ Đình 2, Quận Nam Từ Liêm, Thành phố Hà Nội, Việt Nam'),
   ('OTC.DL1167', 'Shop Bảo Hân Baby', 'Ninh Bình', 'Số 177 Phạm Thận Duật, Bắc Yên,, Thị trấn Yên Thịnh, Huyện Yên Mô, Tỉnh Ninh Bình, Việt Nam'),
-  ('OTC.DL1168', 'Sữa bỉm Minh Hà', 'Hải Phòng', 'Hạ Câu,, Xã Quốc Tuấn, Huyện An Lão, Thành phố Hải Phòng, Việt Nam, Việt Nam');
+  ('OTC.DL1168', 'Sữa bỉm Minh Hà', 'Hải Phòng', 'Hạ Câu,, Xã Quốc Tuấn, Huyện An Lão, Thành phố Hải Phòng, Việt Nam, Việt Nam')
+ON CONFLICT(code) DO UPDATE SET
+  name = excluded.name,
+  province = excluded.province,
+  address = excluded.address;
 INSERT INTO agencies (code, name, province, address) VALUES
   ('OTC.DL1169', 'Sữa bỉm Bảo Anh Kids', 'Hà Nam', 'Thôn Trung Hạ Đại Vượng,, Xã Thanh Nguyên, Huyện Thanh Liêm, Tỉnh Hà Nam, Việt Nam'),
   ('OTC.DL117', 'CÔNG TY TNHH TÂM NHUNG BABY', 'Thái Bình', '105 Hai Bà Trưng, Phường Lê Hồng Phong, Thành phố Thái Bình, Tỉnh Thái Bình, Việt Nam'),
@@ -2419,7 +2461,11 @@ INSERT INTO agencies (code, name, province, address) VALUES
   ('OTC.DL1347', 'Sữa bỉm Chiến Thảo', 'Bắc Giang', 'lô 17, c19 KĐT An Huy,, Thị trấn Cao Thượng, Huyện Tân Yên, Tỉnh Bắc Giang, Việt Nam, Việt Nam'),
   ('OTC.DL1348', 'Shop Tom Baby', 'Thái Nguyên', 'Ngã 3 chợ Trung Tâm,, Xã Yên Lãng, Huyện Đại Từ, Tỉnh Thái Nguyên, Việt Nam'),
   ('OTC.DL1349', 'Bébé store TXPT', 'Phú Thọ', 'Sn 90 tổ 5, KDC Tân Lập,, Phường Hùng Vương, Thị xã Phú Thọ, Tỉnh Phú Thọ, Việt Nam'),
-  ('OTC.DL135', 'Shop Sana', 'Nghệ An', '52B- Nguyễn Phong Sắc,, Phường Hưng Dũng, Thành phố Vinh, Tỉnh Nghệ An, Việt Nam');
+  ('OTC.DL135', 'Shop Sana', 'Nghệ An', '52B- Nguyễn Phong Sắc,, Phường Hưng Dũng, Thành phố Vinh, Tỉnh Nghệ An, Việt Nam')
+ON CONFLICT(code) DO UPDATE SET
+  name = excluded.name,
+  province = excluded.province,
+  address = excluded.address;
 INSERT INTO agencies (code, name, province, address) VALUES
   ('OTC.DL1350', 'Shop mẹ Mít - Mẹ và bé', 'Quảng Bình', 'Thôn Tân Hương,, Xã Hương Hóa, Huyện Tuyên Hóa, Tỉnh Quảng Bình, Việt Nam'),
   ('OTC.DL1351', 'Shop Yến Nhi Baby', 'Hà Nội', 'Ki ốt 1, tầng 1 số nhà 25 tổ 2,, Thị trấn Chi Đông, Huyện Mê Linh, Thành phố Hà Nội, Việt Nam'),
@@ -2620,7 +2666,11 @@ INSERT INTO agencies (code, name, province, address) VALUES
   ('OTC.DL1531', 'Thế giới mẹ và bé Huyền Tùng', 'Bắc Ninh', '154 lý thường kiệt, trịnh xá, Phường Châu Khê, Thành phố Từ Sơn, Tỉnh Bắc Ninh, Việt Nam'),
   ('OTC.DL1532', 'Shop Hùng Trang', 'Thanh Hóa', 'Tiền Phong, Hải Bình,,, Xã Nghi Sơn, Thị xã Nghi Sơn, Tỉnh Thanh Hóa, Việt Nam'),
   ('OTC.DL1533', 'Thế Giới Sữa Cao Bằng', 'Cao Bằng', 'Ô 240B chợ Sông Bằng,, Phường Sông Bằng, Thành phố Cao Bằng, Tỉnh Cao Bằng, Việt Nam, Việt Nam'),
-  ('OTC.DL1534', 'Shop Lê Duy', 'Thanh Hóa', 'đường 01, làng cao sơn,, Xã Lũng Cao, Huyện Bá Thước, Tỉnh Thanh Hóa, Việt Nam');
+  ('OTC.DL1534', 'Shop Lê Duy', 'Thanh Hóa', 'đường 01, làng cao sơn,, Xã Lũng Cao, Huyện Bá Thước, Tỉnh Thanh Hóa, Việt Nam')
+ON CONFLICT(code) DO UPDATE SET
+  name = excluded.name,
+  province = excluded.province,
+  address = excluded.address;
 INSERT INTO agencies (code, name, province, address) VALUES
   ('OTC.DL1535', 'Mẹ và bé Sâu Khoai', 'Hải Dương', 'thôn an tân,, Xã Gia Tân, Huyện Gia Lộc, Tỉnh Hải Dương, Việt Nam'),
   ('OTC.DL1536', 'Shop MoKa Mommy care', 'Bắc Ninh', 'Số Nhà 80 Ngọc Hân Công Chúa ,, Phường Ninh Xá, Thành phố Bắc Ninh, Tỉnh Bắc Ninh, Việt Nam, Việt Nam'),
@@ -2821,7 +2871,11 @@ INSERT INTO agencies (code, name, province, address) VALUES
   ('OTC.DL1714', 'Shop Mẹ Bun', 'Nghệ An', '245 Nguyễn Trãi,, Phường Quán Bàu, Thành phố Vinh, Tỉnh Nghệ An, Việt Nam'),
   ('OTC.DL1716', 'Shop Trang Linh', 'Thanh Hóa', 'Quốc lộ 47, Cầu Đông Hoàng ,, Xã Đông Hoàng, Huyện Đông Sơn, Tỉnh Thanh Hóa, Việt Nam'),
   ('OTC.DL1717', 'Siêu Thị Sữa Quỳnh Anh', 'Thanh Hóa', 'Đường 7,, Thị trấn Hà Long, Huyện Hà Trung, Tỉnh Thanh Hóa, Việt Nam'),
-  ('OTC.DL1718', 'Shop mẹ và bé Trường Anh', 'Hà Nội', 'Lại Thượng, Huyện Thạch Thất, Hà Nội, Vietnam,, Xã Lại Thượng, Huyện Thạch Thất, Thành phố Hà Nội, Việt Nam');
+  ('OTC.DL1718', 'Shop mẹ và bé Trường Anh', 'Hà Nội', 'Lại Thượng, Huyện Thạch Thất, Hà Nội, Vietnam,, Xã Lại Thượng, Huyện Thạch Thất, Thành phố Hà Nội, Việt Nam')
+ON CONFLICT(code) DO UPDATE SET
+  name = excluded.name,
+  province = excluded.province,
+  address = excluded.address;
 INSERT INTO agencies (code, name, province, address) VALUES
   ('OTC.DL172', 'DỨA PLAZA', 'Quảng Ninh', 'số nhà 67 Khu 4, Phường Phong Hải, Thị xã Quảng Yên, Tỉnh Quảng Ninh, Việt Nam'),
   ('OTC.DL1720', 'Shop Anh Thư Baby', 'Phú Thọ', 'Khu 4,, Xã Phù Ninh, Huyện Phù Ninh, Tỉnh Phú Thọ, Việt Nam'),
@@ -3022,7 +3076,11 @@ INSERT INTO agencies (code, name, province, address) VALUES
   ('OTC.DL1899', 'Shop mẹ và bé Sơn Ngân 1', 'Thanh Hóa', 'Thôn 5,, Xã Hoằng Trường, Huyện Hoằng Hóa, Tỉnh Thanh Hóa, Việt Nam'),
   ('OTC.DL190', 'CÔNG TY TNHH PHÁT TRIỂN THƯƠNG MẠI TỔNG HỢP ĐỨC THÀNH', 'Hà Nội', 'LK5C(LK6C)- 23, Làng Việt Kiều Châu âu, khu đô thị mới Mỗ La,, Phường Mộ Lao, Quận Hà Đông, Thành phố Hà Nội, Việt Nam'),
   ('OTC.DL1900', 'Shop mẹ Xu', 'Quảng Bình', 'Thôn Lê Xá,, Xã Mai Thủy, Huyện Lệ Thủy, Tỉnh Quảng Bình, Việt Nam'),
-  ('OTC.DL1901', 'Hệ thống sữa bỉm Vân Nguyễn', 'Tuyên Quang', 'Cơ sở 5 Lập Thành,, Xã Mỹ Bằng, Huyện Yên Sơn, Tỉnh Tuyên Quang, Việt Nam');
+  ('OTC.DL1901', 'Hệ thống sữa bỉm Vân Nguyễn', 'Tuyên Quang', 'Cơ sở 5 Lập Thành,, Xã Mỹ Bằng, Huyện Yên Sơn, Tỉnh Tuyên Quang, Việt Nam')
+ON CONFLICT(code) DO UPDATE SET
+  name = excluded.name,
+  province = excluded.province,
+  address = excluded.address;
 INSERT INTO agencies (code, name, province, address) VALUES
   ('OTC.DL1902', 'Shop mẹ bé Sofiakids', 'Hà Nội', 'Số 10 đường đông mỹ,, Xã Đông Mỹ, Huyện Thanh Trì, Thành phố Hà Nội, Việt Nam'),
   ('OTC.DL1903', 'AH Milk', 'Hải Dương', 'Cổng Lạng Vạn,, Xã Minh Đức, Huyện Tứ Kỳ, Tỉnh Hải Dương, Việt Nam'),
@@ -3223,7 +3281,11 @@ INSERT INTO agencies (code, name, province, address) VALUES
   ('OTC.DL366', 'Shop Bé Chip', 'Thái Bình', '192, TT Tiểu Hoàng,, Thị trấn Tiền Hải, Huyện Tiền Hải, Tỉnh Thái Bình, Việt Nam'),
   ('OTC.DL367', 'Shop Phương Thảo', 'Hoà Bình', 'Cổng Ubnd Thị Trấn Bo,, Thị trấn Bo, Huyện Kim Bôi, Tỉnh Hoà Bình, Việt Nam'),
   ('OTC.DL368', 'Shop Bon Bon Baby', 'Bắc Giang', 'Thôn Đại Tân, Xã Đại Thành, Huyện Hiệp Hòa, Tỉnh Bắc Giang, Việt Nam'),
-  ('OTC.DL369', 'Shop Hoà Nga', 'Bắc Giang', '336 Thân Nhân Trung, Thị trấn Bích Động, Thị xã Thị Xã Việt Yên, Tỉnh Bắc Giang, Việt Nam');
+  ('OTC.DL369', 'Shop Hoà Nga', 'Bắc Giang', '336 Thân Nhân Trung, Thị trấn Bích Động, Thị xã Thị Xã Việt Yên, Tỉnh Bắc Giang, Việt Nam')
+ON CONFLICT(code) DO UPDATE SET
+  name = excluded.name,
+  province = excluded.province,
+  address = excluded.address;
 INSERT INTO agencies (code, name, province, address) VALUES
   ('OTC.DL370', 'Sữa bỉm.com Chợ Hầu', 'Nam Định', 'Số 33 Chợ Hầu, Xã Liên Minh, Huyện Vụ Bản, Tỉnh Nam Định, Việt Nam'),
   ('OTC.DL371', 'Shop Hello baby float', 'Đà Nẵng', '32 Tô Hiệu,, Phường Hòa Minh, Quận Liên Chiểu, Thành phố Đà Nẵng, Việt Nam'),
@@ -3424,7 +3486,11 @@ INSERT INTO agencies (code, name, province, address) VALUES
   ('OTC.DL568', 'Shop Tuệ Moon Care', 'Khánh Hòa', '114 Hùng Vương,, Thị trấn Vạn Giã, Huyện Vạn Ninh, Tỉnh Khánh Hòa, Việt Nam'),
   ('OTC.DL569', 'Shop Mẹ Tôm', 'Hồ Chí Minh', '1338 đường Huỳnh Tấn Phát,, Phường Phú Mỹ, Quận 7, Thành phố Hồ Chí Minh, Việt Nam'),
   ('OTC.DL570', 'Shop Bông bé bé', 'Thái Nguyên', 'Tổ 8,, Phường Chùa Hang, Thành phố Thái Nguyên, Tỉnh Thái Nguyên, Việt Nam'),
-  ('OTC.DL571', 'CÔNG TY TNHH THƯƠNG MẠI VÀ DỊCH VỤ BÁCH ANH QUÂN', 'Quảng Trị', 'Số 62, Trần Hưng Đạo,, Phường 1, Thành phố Đông Hà, Tỉnh Quảng Trị, Việt Nam');
+  ('OTC.DL571', 'CÔNG TY TNHH THƯƠNG MẠI VÀ DỊCH VỤ BÁCH ANH QUÂN', 'Quảng Trị', 'Số 62, Trần Hưng Đạo,, Phường 1, Thành phố Đông Hà, Tỉnh Quảng Trị, Việt Nam')
+ON CONFLICT(code) DO UPDATE SET
+  name = excluded.name,
+  province = excluded.province,
+  address = excluded.address;
 INSERT INTO agencies (code, name, province, address) VALUES
   ('OTC.DL572', 'Shop Bon Bon', 'Yên Bái', '759 Điện Biên,, Phường Minh Tân, Thành phố Yên Bái, Tỉnh Yên Bái, Việt Nam'),
   ('OTC.DL573', 'CÔNG TY TNHH MỘT THÀNH VIÊN HÀ LINH ANH', 'Quảng Trị', '31/7 Nguyễn Đình Chiểu,, Phường 3, Thành phố Đông Hà, Tỉnh Quảng Trị, Việt Nam'),
@@ -3625,7 +3691,11 @@ INSERT INTO agencies (code, name, province, address) VALUES
   ('OTC.DL768', 'Shop Kunbaby', 'Quảng Bình', 'Nhân quang,, Xã Nhân Trạch, Huyện Bố Trạch, Tỉnh Quảng Bình, Việt Nam'),
   ('OTC.DL769', 'Shop Sơn Dung', 'Tuyên Quang', 'Cổng UB Tân Trào,, Xã Tân Trào, Huyện Sơn Dương, Tỉnh Tuyên Quang, Việt Nam'),
   ('OTC.DL770', 'SHOP RĂNG SÚN', 'Phú Thọ', 'Đối diện phòng Khám An Sinh, đường Nguyễn Du kéo dài, Hoà Phong,, Phường Nông Trang, Thành phố Việt Trì, Tỉnh Phú Thọ, Việt Nam'),
-  ('OTC.DL771', 'Nguyễn Yến', 'Thanh Hóa', '1183-1185 Đường An Dương Vương,, Phường Quảng Đông, Thành phố Thanh Hóa, Tỉnh Thanh Hóa, Việt Nam');
+  ('OTC.DL771', 'Nguyễn Yến', 'Thanh Hóa', '1183-1185 Đường An Dương Vương,, Phường Quảng Đông, Thành phố Thanh Hóa, Tỉnh Thanh Hóa, Việt Nam')
+ON CONFLICT(code) DO UPDATE SET
+  name = excluded.name,
+  province = excluded.province,
+  address = excluded.address;
 INSERT INTO agencies (code, name, province, address) VALUES
   ('OTC.DL772', 'Thế giới sữa tốt Sana', 'Hà Tĩnh', 'Số 58 đường Xuân Diệu,, Phường Bắc Hà, Thành phố Hà Tĩnh, Tỉnh Hà Tĩnh, Việt Nam'),
   ('OTC.DL773', 'Shop Pi Kids', 'Tuyên Quang', 'Xã Trung Sơn, Huyện Yên Sơn, Tỉnh Tuyên Quang, Việt Nam'),
@@ -3826,7 +3896,11 @@ INSERT INTO agencies (code, name, province, address) VALUES
   ('OTC.DL975', 'Shop mẹ hấu', 'Lào Cai', '040 Lương Đình Của, Thị xã Sapa,Lào Cai,, Phường Sa Pa, Thị xã Sa Pa, Tỉnh Lào Cai, Việt Nam'),
   ('OTC.DL976', 'Shop mẹ bé Minh Tùng', 'Lai Châu', '56 nguyễn chí thanh,, Phường Tân Phong, Thành phố Lai Châu, Tỉnh Lai Châu, Việt Nam'),
   ('OTC.DL977', 'Shop mẹ bầu & em bé Tom Kids', 'Yên Bái', 'Số nhà 509 đường Hoàng Liên Sơn gần ngã ba Cầu Nung,, Phường Pú Trạng, Thị xã Nghĩa Lộ, Tỉnh Yên Bái, Việt Nam'),
-  ('OTC.DL978', 'Shop thùy an', 'Hà Nội', 'Số 47 ngách 402/42 đường mỹ đình mỹ đình 1,, Phường Mỹ Đình 1, Quận Nam Từ Liêm, Thành phố Hà Nội, Việt Nam');
+  ('OTC.DL978', 'Shop thùy an', 'Hà Nội', 'Số 47 ngách 402/42 đường mỹ đình mỹ đình 1,, Phường Mỹ Đình 1, Quận Nam Từ Liêm, Thành phố Hà Nội, Việt Nam')
+ON CONFLICT(code) DO UPDATE SET
+  name = excluded.name,
+  province = excluded.province,
+  address = excluded.address;
 INSERT INTO agencies (code, name, province, address) VALUES
   ('OTC.DL979', 'Sữa bỉm Tuấn Hoa', 'Hưng Yên', 'Phố Minh Khai,, Thị trấn Vương, Huyện Tiên Lữ, Tỉnh Hưng Yên, Việt Nam'),
   ('OTC.DL980', 'Mai tây Shop', 'Hà Nội', 'Xã Phượng Cách, Huyện Quốc Oai, Thành phố Hà Nội, Việt Nam'),
@@ -4027,7 +4101,11 @@ INSERT INTO agencies (code, name, province, address) VALUES
   ('OTC.NT00021142', 'Quầy thuốc Chưởng Nhiệm', 'Nam Định', 'xóm 5, Xã Hồng Thuận, Huyện Giao Thủy, Tỉnh Nam Định, Việt Nam'),
   ('OTC.NT00021144', 'Nhà thuốc 3P Pharmacy', 'Hà Nội', '219 phố mai dịch, Phường Mai Dịch, Quận Cầu Giấy, Thành phố Hà Nội, Việt Nam'),
   ('OTC.NT00021149', 'QT Hoa Chính', 'Hà Nội', 'Lương Sơn, Xã Hòa Phú, Huyện Ứng Hòa, Thành phố Hà Nội, Việt Nam'),
-  ('OTC.NT00021156', 'Quầy thuốc Vân Anh', 'Hà Giang', 'Tổ 6, Thị trấn Nông Trường Việt Lâm, Huyện Vị Xuyên, Tỉnh Hà Giang, Việt Nam');
+  ('OTC.NT00021156', 'Quầy thuốc Vân Anh', 'Hà Giang', 'Tổ 6, Thị trấn Nông Trường Việt Lâm, Huyện Vị Xuyên, Tỉnh Hà Giang, Việt Nam')
+ON CONFLICT(code) DO UPDATE SET
+  name = excluded.name,
+  province = excluded.province,
+  address = excluded.address;
 INSERT INTO agencies (code, name, province, address) VALUES
   ('OTC.NT00021170', 'QT Thu Trang', 'Vĩnh Phúc', 'Lưu Quang, Xã Minh Quang, Huyện Tam Đảo, Tỉnh Vĩnh Phúc, Việt Nam'),
   ('OTC.NT00021173', 'Nhà thuốc Ngọc Anh', 'Hưng Yên', 'Phố dầu, Xã Tân Quang, Huyện Văn Lâm, Tỉnh Hưng Yên, Việt Nam'),
@@ -4228,7 +4306,11 @@ INSERT INTO agencies (code, name, province, address) VALUES
   ('OTC.NT00022548', 'Nhà thuốc Minh Khôi', 'Hưng Yên', 'thôn đồng trại, Xã Lương Tài, Huyện Văn Lâm, Tỉnh Hưng Yên, Việt Nam'),
   ('OTC.NT00022557', 'Quầy thuốc Thùy Dương 1997', 'Hà Nội', 'Tầng 1 tòa Ecodream, Xã Tân Triều, Huyện Thanh Trì, Thành phố Hà Nội, Việt Nam'),
   ('OTC.NT00022564', 'Quầy thuốc My châu', 'Hải Phòng', 'trịnh xá, Phường Thiên Hương, Thành phố Thuỷ Nguyên, Thành phố Hải Phòng, Việt Nam'),
-  ('OTC.NT00022572', 'NT Hà Trung 3', 'Hà Nội', '169 Mai Dịch, Phường Mai Dịch, Quận Cầu Giấy, Thành phố Hà Nội, Việt Nam');
+  ('OTC.NT00022572', 'NT Hà Trung 3', 'Hà Nội', '169 Mai Dịch, Phường Mai Dịch, Quận Cầu Giấy, Thành phố Hà Nội, Việt Nam')
+ON CONFLICT(code) DO UPDATE SET
+  name = excluded.name,
+  province = excluded.province,
+  address = excluded.address;
 INSERT INTO agencies (code, name, province, address) VALUES
   ('OTC.NT00022574', 'Tuyết Mai Mart', 'Vĩnh Phúc', 'TDP Then, Thị trấn Tam Sơn, Huyện Sông Lô, Tỉnh Vĩnh Phúc, Việt Nam'),
   ('OTC.NT00022592', 'Nhà thuốc Khánh Chi', 'Thái Nguyên', 'SN 585 TDP Vàng, Phường Tân Hương, Thành phố Phổ Yên, Tỉnh Thái Nguyên, Việt Nam'),
@@ -4429,7 +4511,11 @@ INSERT INTO agencies (code, name, province, address) VALUES
   ('OTC.NT00024336', 'QT Việt Hà', 'Hà Tĩnh', 'Số 8 đường Yên Trung, Thị trấn Đức Thọ, Huyện Đức Thọ, Tỉnh Hà Tĩnh, Việt Nam'),
   ('OTC.NT00024338', 'Quầy thuốc Hồng Phúc', 'Hưng Yên', '91 đường la tiến, Thị trấn Trần Cao, Huyện Phù Cừ, Tỉnh Hưng Yên, Việt Nam'),
   ('OTC.NT00024344', 'Nhà Thuốc Trần Văn Mạnh', 'Sơn La', 'Số nhà 79, TDP Bình Nguyên, Phường Thảo Nguyên, Thị xã Mộc Châu, Tỉnh Sơn La, Việt Nam'),
-  ('OTC.NT00024389', 'Quầy thuốc Phương Trang', 'Nam Định', 'Khu 19, Thị trấn Thịnh Long, Huyện Hải Hậu, Tỉnh Nam Định, Việt Nam');
+  ('OTC.NT00024389', 'Quầy thuốc Phương Trang', 'Nam Định', 'Khu 19, Thị trấn Thịnh Long, Huyện Hải Hậu, Tỉnh Nam Định, Việt Nam')
+ON CONFLICT(code) DO UPDATE SET
+  name = excluded.name,
+  province = excluded.province,
+  address = excluded.address;
 INSERT INTO agencies (code, name, province, address) VALUES
   ('OTC.NT00024399', 'Quầy thuốc Bạch Mai', 'Hưng Yên', 'Thôn Linh hạ, Xã Nhật Tân, Huyện Tiên Lữ, Tỉnh Hưng Yên, Việt Nam'),
   ('OTC.NT00024405', 'Quầy thuốc Bạch Mai +', 'Hưng Yên', '56 phố Minh Khai, Thị trấn Vương, Huyện Tiên Lữ, Tỉnh Hưng Yên, Việt Nam'),
@@ -4630,7 +4716,11 @@ INSERT INTO agencies (code, name, province, address) VALUES
   ('OTC.NT1035', 'Quầy Thuốc Bạch Mai', 'Bắc Ninh', 'Chợ Ve, Xã Tri Phương, Huyện Tiên Du, Tỉnh Bắc Ninh, Việt Nam, Việt Nam'),
   ('OTC.NT1036', 'Quầy thuốc Tư Nhân', 'Hà Nội', 'Thôn Quất Động, Xã Quất Động, Huyện Thường Tín, Thành phố Hà Nội, Việt Nam'),
   ('OTC.NT1037', 'Quầy thuốc Ngọc Huệ 1', 'Thanh Hóa', 'Thôn Yên Hoà, Xã Hưng Lộc, Huyện Hậu Lộc, Tỉnh Thanh Hóa, Việt Nam'),
-  ('OTC.NT1038', 'Nhà Thuốc Mai Hương', 'Hà Nội', '108B A12 Nghĩa Tân, Phường Nghĩa Tân, Quận Cầu Giấy, Thành phố Hà Nội, Việt Nam');
+  ('OTC.NT1038', 'Nhà Thuốc Mai Hương', 'Hà Nội', '108B A12 Nghĩa Tân, Phường Nghĩa Tân, Quận Cầu Giấy, Thành phố Hà Nội, Việt Nam')
+ON CONFLICT(code) DO UPDATE SET
+  name = excluded.name,
+  province = excluded.province,
+  address = excluded.address;
 INSERT INTO agencies (code, name, province, address) VALUES
   ('OTC.NT1039', 'Nhà Thuốc tư nhân Anh Huy số 8', 'Hà Nội', 'N04B1 KĐT mới Dịch Vọng  đường Thành Thái, Phường Dịch Vọng, Quận Cầu Giấy, Thành phố Hà Nội, Việt Nam'),
   ('OTC.NT104', 'Quầy thuốc Mạnh Thơm', 'Hà Nội', 'Xóm Nội Thôn Đạo Thượng,, Xã Tân Hưng, Huyện Sóc Sơn, Thành phố Hà Nội, Việt Nam'),
@@ -4831,7 +4921,11 @@ INSERT INTO agencies (code, name, province, address) VALUES
   ('OTC.NT1223', 'Nhà thuốc Thu Cúc', 'Ninh Bình', 'Xóm 5, Xã Quang Thiện, Huyện Kim Sơn, Tỉnh Ninh Bình, Việt Nam'),
   ('OTC.NT1224', 'Nhà thuốc Quang Minh', 'Quảng Ninh', 'Số 328, Phường Trần Hưng Đạo, Thành phố Hạ Long, Tỉnh Quảng Ninh, Việt Nam, Việt Nam'),
   ('OTC.NT1225', 'Quầy Thu Hằng 1', 'Quảng Ninh', 'Tổ 2, Phường Mông Dương, Thành phố Cẩm Phả, Tỉnh Quảng Ninh, Việt Nam, Việt Nam'),
-  ('OTC.NT1226', 'Quầy thuốc hòa phương', 'Hà Nội', 'Đội 5 thôn yên kiện, Xã Ngọc Hồi, Huyện Thanh Trì, Thành phố Hà Nội, Việt Nam');
+  ('OTC.NT1226', 'Quầy thuốc hòa phương', 'Hà Nội', 'Đội 5 thôn yên kiện, Xã Ngọc Hồi, Huyện Thanh Trì, Thành phố Hà Nội, Việt Nam')
+ON CONFLICT(code) DO UPDATE SET
+  name = excluded.name,
+  province = excluded.province,
+  address = excluded.address;
 INSERT INTO agencies (code, name, province, address) VALUES
   ('OTC.NT1227', 'Quầy Thuốc Thuý Phượng', 'Vĩnh Phúc', 'Thôn Cam Giá, Xã An Nhân, Huyện Vĩnh Tường, Tỉnh Vĩnh Phúc, Việt Nam'),
   ('OTC.NT1228', 'Nhà thuốc Hồng Ngọc', 'Bắc Ninh', 'Thửa 9, Phường Đại Phúc, Thành phố Bắc Ninh, Tỉnh Bắc Ninh, Việt Nam'),
@@ -5032,7 +5126,11 @@ INSERT INTO agencies (code, name, province, address) VALUES
   ('OTC.NT1409', 'Quầy Thuốc tư nhân Thảo Nguyên', 'Nghệ An', 'Ngã 3 xóm Đồng Nại, Xã Đồng Hợp, Huyện Quỳ Hợp, Tỉnh Nghệ An, Việt Nam'),
   ('OTC.NT141', 'Nhà Thuốc thanh hoa', 'Lào Cai', '097 ỷ lan,, Phường Nam Cường, Thành phố Lào Cai, Tỉnh Lào Cai, Việt Nam'),
   ('OTC.NT1410', 'Quầy Thuốc Phan Thị Hà Giang', 'Hà Tĩnh', '113 Phan Đình Phùng, Thị trấn Hương Khê, Huyện Hương Khê, Tỉnh Hà Tĩnh, Việt Nam'),
-  ('OTC.NT1411', 'Quầy Thuốc Mai Hương', 'Phú Thọ', 'Khu 11, Xã Kim Đức, Thành phố Việt Trì, Tỉnh Phú Thọ, Việt Nam');
+  ('OTC.NT1411', 'Quầy Thuốc Mai Hương', 'Phú Thọ', 'Khu 11, Xã Kim Đức, Thành phố Việt Trì, Tỉnh Phú Thọ, Việt Nam')
+ON CONFLICT(code) DO UPDATE SET
+  name = excluded.name,
+  province = excluded.province,
+  address = excluded.address;
 INSERT INTO agencies (code, name, province, address) VALUES
   ('OTC.NT1412', 'Quầy thuốc Phúc Tâm Dược', 'Hà Nội', 'Nhà số 8 thôn Nghĩa Lộ, Xã Võng Xuyên, Huyện Phúc Thọ, Thành phố Hà Nội, Việt Nam'),
   ('OTC.NT1413', 'Quầy thuốc Gia Khánh', 'Phú Thọ', 'Sn 374 đường Đào Giã, Thị trấn Thanh Ba, Huyện Thanh Ba, Tỉnh Phú Thọ, Việt Nam'),
@@ -5233,7 +5331,11 @@ INSERT INTO agencies (code, name, province, address) VALUES
   ('OTC.NT1590', 'Quầy Thuốc Vân Tiên', 'Phú Thọ', 'Khu 7, Xã Sơn Thủy, Huyện Thanh Thuỷ, Tỉnh Phú Thọ, Việt Nam'),
   ('OTC.NT1591', 'Quầy Thuốc Hoài Mơ', 'Hà Tĩnh', 'Tổ dân phố 10, Thị trấn Phố Châu, Huyện Hương Sơn, Tỉnh Hà Tĩnh, Việt Nam'),
   ('OTC.NT1592', 'Quầy thuốc Hiền Huyền', 'Hải Phòng', 'thôn 1, Xã Liên Xuân, Thành phố Thuỷ Nguyên, Thành phố Hải Phòng, Việt Nam'),
-  ('OTC.NT1593', 'Nhà Thuốc Cường Hằng', 'Thanh Hóa', 'Số nhà 43 Phố Thiều, Xã Dân Lý, Huyện Triệu Sơn, Tỉnh Thanh Hóa, Việt Nam');
+  ('OTC.NT1593', 'Nhà Thuốc Cường Hằng', 'Thanh Hóa', 'Số nhà 43 Phố Thiều, Xã Dân Lý, Huyện Triệu Sơn, Tỉnh Thanh Hóa, Việt Nam')
+ON CONFLICT(code) DO UPDATE SET
+  name = excluded.name,
+  province = excluded.province,
+  address = excluded.address;
 INSERT INTO agencies (code, name, province, address) VALUES
   ('OTC.NT1594', 'Quầy Thuốc Hà Tưởng', 'Sơn La', 'Tiểu khu 2, Thị trấn Ít Ong, Huyện Mường La, Tỉnh Sơn La, Việt Nam'),
   ('OTC.NT1595', 'Quầy thuốc Bích Thuỷ', 'Quảng Bình', 'Thôn đông duyệt 2, Phường Hải Phú, Huyện Bố Trạch, Tỉnh Quảng Bình, Việt Nam'),
@@ -5434,7 +5536,11 @@ INSERT INTO agencies (code, name, province, address) VALUES
   ('OTC.NT1772', 'Quầy Thuốc Tùng Hiền', 'Vĩnh Phúc', 'Tân ngọc, Thị trấn Bá Hiến, Huyện Bình Xuyên, Tỉnh Vĩnh Phúc, Việt Nam'),
   ('OTC.NT1773', 'Quầy thuốc Mạnh Hòa', 'Hà Tĩnh', 'Số 37 đường Đặng Văn Bá, Xã Thạch Bình, Thành phố Hà Tĩnh, Tỉnh Hà Tĩnh, Việt Nam'),
   ('OTC.NT1774', 'Nhà thuốc Phương Nhung', 'Thanh Hóa', '14 Tân An, Phường Ngọc Trạo, Thành phố Thanh Hóa, Tỉnh Thanh Hóa, Việt Nam'),
-  ('OTC.NT1775', 'Nhà thuốc Minh Thảo', 'Thanh Hóa', 'Sn 451 đường Đỗ Bí Thôn Lê Xá 2, Xã Minh Nghĩa, Huyện Nông Cống, Tỉnh Thanh Hóa, Việt Nam');
+  ('OTC.NT1775', 'Nhà thuốc Minh Thảo', 'Thanh Hóa', 'Sn 451 đường Đỗ Bí Thôn Lê Xá 2, Xã Minh Nghĩa, Huyện Nông Cống, Tỉnh Thanh Hóa, Việt Nam')
+ON CONFLICT(code) DO UPDATE SET
+  name = excluded.name,
+  province = excluded.province,
+  address = excluded.address;
 INSERT INTO agencies (code, name, province, address) VALUES
   ('OTC.NT1776', 'Quầy Thuốc Lan Anh', 'Tuyên Quang', 'Thôn Trai Mít, Xã Hào Phú, Huyện Sơn Dương, Tỉnh Tuyên Quang, Việt Nam'),
   ('OTC.NT1777', 'Nhà thuốc Hằng Thao', 'Nghệ An', '9A đường Hồng Sơn, Phường Cửa Nam, Thành phố Vinh, Tỉnh Nghệ An, Việt Nam'),
@@ -5635,7 +5741,11 @@ INSERT INTO agencies (code, name, province, address) VALUES
   ('OTC.NT1957', 'Nhà thuốc Hương Lan', 'Hà Tĩnh', 'số 360 đường nguyễn công trứ, Phường Tân Giang, Thành phố Hà Tĩnh, Tỉnh Hà Tĩnh, Việt Nam'),
   ('OTC.NT1958', 'Quầy thuốc Thanh Xuân 1', 'Quảng Bình', '0, Tỉnh Quảng Bình, Việt Nam'),
   ('OTC.NT1959', 'Quầy thuốc Hùng Lệ', 'Nghệ An', 'Xóm 5, Xã Quỳnh Lộc, Thị xã Hoàng Mai, Tỉnh Nghệ An, Việt Nam'),
-  ('OTC.NT196', 'Quầy thuốc Ánh Tuyết', 'Hà Tĩnh', 'Thôn 10,, Xã Cẩm Quang, Huyện Cẩm Xuyên, Tỉnh Hà Tĩnh, Việt Nam');
+  ('OTC.NT196', 'Quầy thuốc Ánh Tuyết', 'Hà Tĩnh', 'Thôn 10,, Xã Cẩm Quang, Huyện Cẩm Xuyên, Tỉnh Hà Tĩnh, Việt Nam')
+ON CONFLICT(code) DO UPDATE SET
+  name = excluded.name,
+  province = excluded.province,
+  address = excluded.address;
 INSERT INTO agencies (code, name, province, address) VALUES
   ('OTC.NT1960', 'Ct Cp Dược Hưng Thịnh', 'Thanh Hóa', 'Tiểu Khu Hưng Long, Thị trấn Nga Sơn, Huyện Nga Sơn, Tỉnh Thanh Hóa, Việt Nam'),
   ('OTC.NT1961', 'Quầy thuốc tuệ an', 'Hà Tĩnh', 'Thôn thống nhất, Xã Ích Hậu, Huyện Lộc Hà, Tỉnh Hà Tĩnh, Việt Nam'),
@@ -5836,7 +5946,11 @@ INSERT INTO agencies (code, name, province, address) VALUES
   ('OTC.NT214', 'Nhà thuốc Hùng Huyền', 'Nghệ An', 'Thôn 10,, Xã Quỳnh Vinh, Thị xã Hoàng Mai, Tỉnh Nghệ An, Việt Nam'),
   ('OTC.NT2140', 'Quầy thuốc Thanh Mai', 'Ninh Bình', 'Xom 6 nam Cường, Xã Khánh Cường, Huyện Yên Khánh, Tỉnh Ninh Bình, Việt Nam'),
   ('OTC.NT2141', 'Nhà thuốc Quang Anh', 'Điện Biên', 'Số 364 Tổ 6, Phường Mường Thanh, Thành phố Điện Biên Phủ, Tỉnh Điện Biên, Việt Nam'),
-  ('OTC.NT2142', 'Quầy Thuốc Thanh Mai', 'Hà Nam', 'TDP An Đông, Phường Lê Hồ, Thị xã Kim Bảng, Tỉnh Hà Nam, Việt Nam');
+  ('OTC.NT2142', 'Quầy Thuốc Thanh Mai', 'Hà Nam', 'TDP An Đông, Phường Lê Hồ, Thị xã Kim Bảng, Tỉnh Hà Nam, Việt Nam')
+ON CONFLICT(code) DO UPDATE SET
+  name = excluded.name,
+  province = excluded.province,
+  address = excluded.address;
 INSERT INTO agencies (code, name, province, address) VALUES
   ('OTC.NT2143', 'Quầy thuốc Cường Thư', 'Hải Dương', 'hộ vệ, Xã Cẩm Hưng, Huyện Cẩm Giàng, Tỉnh Hải Dương, Việt Nam'),
   ('OTC.NT2144', 'Quầy thuốc Trương Thị Mỹ Thu', 'Nghệ An', 'Chợ Sen, Xã Nghĩa Đồng, Huyện Tân Kỳ, Tỉnh Nghệ An, Việt Nam'),
@@ -6037,7 +6151,11 @@ INSERT INTO agencies (code, name, province, address) VALUES
   ('OTC.NT2322', 'Quầy thuốc Minh Khánh', 'Quảng Trị', 'La Xuân, Xã Trung Sơn, Huyện Gio Linh, Tỉnh Quảng Trị, Việt Nam'),
   ('OTC.NT2323', 'Quầy Thuốc Thuỳ Linh', 'Quảng Trị', 'Số 04 Duòn 2/4 Khu Pho 8, Thị trấn Gio Linh, Huyện Gio Linh, Tỉnh Quảng Trị, Việt Nam'),
   ('OTC.NT2324', 'CÔNG TY CỔ PHẨN DƯỢC PHẨM DAMIPHAR', 'Nghệ An', 'Xóm Nam Sơn, Xã Nghi Long, Huyện Nghi Lộc, Tỉnh Nghệ An, Việt Nam'),
-  ('OTC.NT2325', 'Nhà thuốc Toàn Nhung 2', 'Nghệ An', 'Số 38 Hồ Tông Thốc, Phường Nghi Phú, Thành phố Vinh, Tỉnh Nghệ An, Việt Nam');
+  ('OTC.NT2325', 'Nhà thuốc Toàn Nhung 2', 'Nghệ An', 'Số 38 Hồ Tông Thốc, Phường Nghi Phú, Thành phố Vinh, Tỉnh Nghệ An, Việt Nam')
+ON CONFLICT(code) DO UPDATE SET
+  name = excluded.name,
+  province = excluded.province,
+  address = excluded.address;
 INSERT INTO agencies (code, name, province, address) VALUES
   ('OTC.NT2326', 'Quầy Thuốc Quyền Phương', 'Hà Nội', 'Chợ Đình - Bạch trữ, Xã Tiến Thắng, Huyện Mê Linh, Thành phố Hà Nội, Việt Nam'),
   ('OTC.NT2327', 'Nhà Thuốc Lương Mến', 'Thái Nguyên', 'Số 6A tổ 10, Phường Hoàng Văn Thụ, Thành phố Thái Nguyên, Tỉnh Thái Nguyên, Việt Nam'),
@@ -6238,7 +6356,11 @@ INSERT INTO agencies (code, name, province, address) VALUES
   ('OTC.NT2505', 'Quầy thuốc Linh Đa', 'Quảng Trị', 'An đức 2, Thị trấn Cửa Tùng, Huyện Vĩnh Linh, Tỉnh Quảng Trị, Việt Nam'),
   ('OTC.NT2506', 'Quầy thuốc Quỳnh Oanh', 'Hà Nội', 'Số 55A tổ 3 - TDP Xuân Mai, Thị trấn Xuân Mai, Huyện Chương Mỹ, Thành phố Hà Nội, Việt Nam'),
   ('OTC.NT2507', 'Nhà thuốc Nhật Lệ', 'Thanh Hóa', 'TDP Đại Đồng, Thị trấn Phong Sơn, Huyện Cẩm Thủy, Tỉnh Thanh Hóa, Việt Nam'),
-  ('OTC.NT2508', 'Nhà thuốc Hạnh Quang', 'Thanh Hóa', 'Thôn Thung Thôn, Xã Định Hòa, Huyện Yên Định, Tỉnh Thanh Hóa, Việt Nam');
+  ('OTC.NT2508', 'Nhà thuốc Hạnh Quang', 'Thanh Hóa', 'Thôn Thung Thôn, Xã Định Hòa, Huyện Yên Định, Tỉnh Thanh Hóa, Việt Nam')
+ON CONFLICT(code) DO UPDATE SET
+  name = excluded.name,
+  province = excluded.province,
+  address = excluded.address;
 INSERT INTO agencies (code, name, province, address) VALUES
   ('OTC.NT2509', 'Quầy thuốc Thu Diệu', 'Ninh Bình', 'Phố Nam Dân, Thị trấn Phát Diệm, Huyện Kim Sơn, Tỉnh Ninh Bình, Việt Nam'),
   ('OTC.NT251', 'Nhà Thuốc Liên Phúc', 'Hà Nội', 'Số nhà 127 đường Quảng Oai,, Thị trấn Tây Đằng, Huyện Ba Vì, Thành phố Hà Nội, Việt Nam'),
@@ -6439,7 +6561,11 @@ INSERT INTO agencies (code, name, province, address) VALUES
   ('OTC.NT288', 'Nhà Thuốc Thái Dương', 'Vĩnh Phúc', 'Sn 29 tổ 6 Lê Xoay,, Phường Ngô Quyền, Thành phố Vĩnh Yên, Tỉnh Vĩnh Phúc, Việt Nam'),
   ('OTC.NT289', 'Quầy thuốc Hiệu Huyền', 'Vĩnh Phúc', 'Thôn Thiện Kế,, Xã Thiện Kế, Huyện Bình Xuyên, Tỉnh Vĩnh Phúc, Việt Nam'),
   ('OTC.NT290', 'Nhà Thuốc Thục Anh', 'Hà Nội', '119 đốc ngữ,, Phường Cống Vị, Quận Ba Đình, Thành phố Hà Nội, Việt Nam'),
-  ('OTC.NT291', 'Nhà Thuốc Hải Phương-Vp', 'Vĩnh Phúc', 'Phường Hùng Vương, Thành phố Phúc Yên, Tỉnh Vĩnh Phúc, Việt Nam');
+  ('OTC.NT291', 'Nhà Thuốc Hải Phương-Vp', 'Vĩnh Phúc', 'Phường Hùng Vương, Thành phố Phúc Yên, Tỉnh Vĩnh Phúc, Việt Nam')
+ON CONFLICT(code) DO UPDATE SET
+  name = excluded.name,
+  province = excluded.province,
+  address = excluded.address;
 INSERT INTO agencies (code, name, province, address) VALUES
   ('OTC.NT292', 'Nhà Thuốc Mimo', 'Hà Nội', '1 trần thủ độ,, Phường Hoàng Liệt, Quận Hoàng Mai, Thành phố Hà Nội, Việt Nam'),
   ('OTC.NT293', 'Quầy Thuốc Số 4', 'Bắc Giang', 'Thôn 9, Xã Việt Tiến, Thị xã Thị Xã Việt Yên, Tỉnh Bắc Giang, Việt Nam'),
@@ -6640,7 +6766,11 @@ INSERT INTO agencies (code, name, province, address) VALUES
   ('OTC.NT489', 'Nhà thuốc Thanh Ngân', 'Lào Cai', 'Bản Lâm Sản,, Xã Bảo Hà, Huyện Bảo Yên, Tỉnh Lào Cai, Việt Nam'),
   ('OTC.NT490', 'Nhà thuốc nam anh', 'Hải Dương', 'Phường Nguyễn Trãi, Thành phố Hải Dương, Tỉnh Hải Dương, Việt Nam'),
   ('OTC.NT491', 'Nhà Thuốc Vĩnh Thịnh', 'Hải Dương', '17F Lý Thường Kiệt,,, Phường Trần Phú, Thành phố Hải Dương, Tỉnh Hải Dương, Việt Nam'),
-  ('OTC.NT492', 'Quầy Thuốc Bích Ngọc', 'Hà Nội', 'Phạm hồng thái,, Xã Hà Hồi, Huyện Thường Tín, Thành phố Hà Nội, Việt Nam');
+  ('OTC.NT492', 'Quầy Thuốc Bích Ngọc', 'Hà Nội', 'Phạm hồng thái,, Xã Hà Hồi, Huyện Thường Tín, Thành phố Hà Nội, Việt Nam')
+ON CONFLICT(code) DO UPDATE SET
+  name = excluded.name,
+  province = excluded.province,
+  address = excluded.address;
 INSERT INTO agencies (code, name, province, address) VALUES
   ('OTC.NT493', 'Nhà Thuốc Nhật Minh', 'Hà Nội', 'W2 - 01S08, Lô Đất Hh, Đường Phạm Hùng,, Phường Mễ Trì, Quận Nam Từ Liêm, Thành phố Hà Nội, Việt Nam'),
   ('OTC.NT494', 'Nhà thuốc Nghĩa Hải', 'Hà Nội', 'Phường Thịnh Quang, Quận Đống Đa, Thành phố Hà Nội, Việt Nam'),
@@ -6841,7 +6971,11 @@ INSERT INTO agencies (code, name, province, address) VALUES
   ('OTC.NT691', 'Nhà Thuốc Gtue Pharma', 'Hà Nội', '71 Trường Lâm, Phường Đức Giang, Quận Long Biên, Thành phố Hà Nội, Việt Nam'),
   ('OTC.NT692', 'Nhà thuốc Phúc Hải 1', 'Hà Nội', '307 Cao Lỗ, Xã Uy Nỗ, Huyện Đông Anh, Thành phố Hà Nội, Việt Nam'),
   ('OTC.NT693', 'Nhà Thuốc Minh Tiến', 'Cao Bằng', 'tổ 9, Thị trấn Trùng Khánh, Huyện Trùng Khánh, Tỉnh Cao Bằng, Việt Nam'),
-  ('OTC.NT694', 'Nhà Thuốc Nghĩa Hưng', 'Hà Nội', 'S002B Tầng 1 tòa T11 TTTM Times City, Phường Vĩnh Tuy, Quận Hai Bà Trưng, Thành phố Hà Nội, Việt Nam');
+  ('OTC.NT694', 'Nhà Thuốc Nghĩa Hưng', 'Hà Nội', 'S002B Tầng 1 tòa T11 TTTM Times City, Phường Vĩnh Tuy, Quận Hai Bà Trưng, Thành phố Hà Nội, Việt Nam')
+ON CONFLICT(code) DO UPDATE SET
+  name = excluded.name,
+  province = excluded.province,
+  address = excluded.address;
 INSERT INTO agencies (code, name, province, address) VALUES
   ('OTC.NT695', 'Quầy Thuốc Linh Chi', 'Hà Nội', 'Đội 9, Xã Ngọc Hồi, Huyện Thanh Trì, Thành phố Hà Nội, Việt Nam'),
   ('OTC.NT696', 'Hệ thống Nhà Thuốc Thumedi Store', 'Hà Nội', '342. Đường thanh bình, Phường La Khê, Quận Hà Đông, Thành phố Hà Nội, Việt Nam'),
@@ -7042,7 +7176,11 @@ INSERT INTO agencies (code, name, province, address) VALUES
   ('OTC.NT895', 'Nhà thuốc Tuệ Thảo', 'Hà Nội', 'Số 122 phố Đào Tấn, Phường Cống Vị, Quận Ba Đình, Thành phố Hà Nội, Việt Nam'),
   ('OTC.NT896', 'Nhà Thuốc Phương Linh', 'Hà Nội', '86B Hoàng Như Tiếp, Phường Bồ Đề, Quận Long Biên, Thành phố Hà Nội, Việt Nam'),
   ('OTC.NT897', 'Nhà Thuốc Lưu Hoa', 'Hà Nội', '165 Đại Từ, Phường Đại Kim, Quận Hoàng Mai, Thành phố Hà Nội, Việt Nam'),
-  ('OTC.NT898', 'Quầy thuốc Hà CHi', 'Hà Nam', 'Chợ Tân Sơn, Phường Tân Sơn, Thị xã Kim Bảng, Tỉnh Hà Nam, Việt Nam');
+  ('OTC.NT898', 'Quầy thuốc Hà CHi', 'Hà Nam', 'Chợ Tân Sơn, Phường Tân Sơn, Thị xã Kim Bảng, Tỉnh Hà Nam, Việt Nam')
+ON CONFLICT(code) DO UPDATE SET
+  name = excluded.name,
+  province = excluded.province,
+  address = excluded.address;
 INSERT INTO agencies (code, name, province, address) VALUES
   ('OTC.NT899', 'Nhà Thuốc Đại học dược Hà Nội', 'Hà Nội', 'Số 33 phố lụa,  tổ dân phố bạch đằng, Phường Vạn Phúc, Quận Hà Đông, Thành phố Hà Nội, Việt Nam'),
   ('OTC.NT900', 'Nhà thuốc Phan Bình - Đỗ Thị Hiếu', 'Hà Nội', 'Vinhome skylake, Phường Mỹ Đình 1, Quận Nam Từ Liêm, Thành phố Hà Nội, Việt Nam'),
@@ -7243,7 +7381,11 @@ INSERT INTO agencies (code, name, province, address) VALUES
   ('OTC.PK066', 'Phòng Khám Chuyên Khoa Nhi Bác sĩ Võ Thị Phương', 'Quảng Trị', 'Thôn Long Hợp, Xã Tân Long, Huyện Hướng Hóa, Tỉnh Quảng Trị, Việt Nam'),
   ('OTC.PK067', 'Phòng Khám sản khoa', 'Hà Nội', '16 dốc viện sản, Phường Ngọc Khánh, Quận Ba Đình, Thành phố Hà Nội, Việt Nam'),
   ('OTC.PK071', 'Phòng khám đa khoa đức minh', 'Hải Dương', 'Xã An Đức, Huyện Ninh Giang, Tỉnh Hải Dương, Việt Nam'),
-  ('OTC.PK072', 'Phòng khám Việt Đức', 'Bắc Kạn', 'Phường Phùng Chí Kiên, Thành phố Thành Phố Bắc Kạn, Tỉnh Bắc Kạn, Việt Nam');
+  ('OTC.PK072', 'Phòng khám Việt Đức', 'Bắc Kạn', 'Phường Phùng Chí Kiên, Thành phố Thành Phố Bắc Kạn, Tỉnh Bắc Kạn, Việt Nam')
+ON CONFLICT(code) DO UPDATE SET
+  name = excluded.name,
+  province = excluded.province,
+  address = excluded.address;
 INSERT INTO agencies (code, name, province, address) VALUES
   ('OTC.PK073', 'Phòng khám Y Tâm', 'Bắc Kạn', 'Tổ 12, Phường Nguyễn Thị Minh Khai, Thành phố Thành Phố Bắc Kạn, Tỉnh Bắc Kạn, Việt Nam'),
   ('OTC.PK074', 'Phòng Khám Hoàng Phong', 'Thanh Hóa', 'Sn 94 ĐHHH33, Xã Hoằng Ngọc, Huyện Hoằng Hóa, Tỉnh Thanh Hóa, Việt Nam'),
@@ -7279,6 +7421,10 @@ INSERT INTO agencies (code, name, province, address) VALUES
   ('OTC.PK104', 'Phòng khám Hiền Yến', 'Nghệ An', 'Số 57 đường lý nhật quang - khối 3, Thị trấn Tân Kỳ, Huyện Tân Kỳ, Tỉnh Nghệ An, Việt Nam'),
   ('OTC.PK105', 'Công Ty Cổ phần dịch vụ thương mại tổng hợp Hoàng Việt ( Phòng khám đa khoa Hoàng Việt)', 'Tuyên Quang', 'Số Nhà 45 Đường Bình Thuận - Tổ 12, Phường Tân Quang, Thành phố Tuyên Quang, Tỉnh Tuyên Quang, Việt Nam'),
   ('OTC.PK106', 'Phòng Khám Đa Khoa 98', 'Nam Định', '98 Mạc Thị Bưởi, Phường Lộc Vượng, Thành phố Nam Định, Tỉnh Nam Định, Việt Nam'),
-  ('OTC.PK107', 'Phòng khám nội tổng hợp Nguyễn Hữu Chương', 'Quảng Trị', '113 Trần Phú Khu phố 6, Thị trấn Hồ Xá, Huyện Vĩnh Linh, Tỉnh Quảng Trị, Việt Nam');
+  ('OTC.PK107', 'Phòng khám nội tổng hợp Nguyễn Hữu Chương', 'Quảng Trị', '113 Trần Phú Khu phố 6, Thị trấn Hồ Xá, Huyện Vĩnh Linh, Tỉnh Quảng Trị, Việt Nam')
+ON CONFLICT(code) DO UPDATE SET
+  name = excluded.name,
+  province = excluded.province,
+  address = excluded.address;
 
 COMMIT;

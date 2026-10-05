@@ -147,16 +147,25 @@ Import đại lý cập nhật thông tin khi trùng mã đại lý; import mã 
 
 Dự án cung cấp sẵn các công cụ tự động hóa dạng script Node.js và câu lệnh SQL phục vụ nạp dữ liệu hàng loạt và chuẩn bị môi trường quay thưởng:
 
-#### 1. Import Danh Sách Đại Lý (`npm run db:import-agencies`)
-- **Dữ liệu nguồn**: `docs/import_daily.csv` (gồm 7.235 đại lý với 4 cột: `Mã khách hàng`, `Tên khách hàng`, `Tỉnh/TP`, `Địa chỉ`).
-- **Cơ chế**:
+#### 1. Import Danh Sách Đại Lý (`npm run db:import-daily` hoặc `npm run db:import-agencies`)
+- **Dữ liệu nguồn**: `docs/import_daily.csv` (hoặc truyền file CSV tùy ý qua CLI).
+- **Cơ chế UPSERT thông minh & an toàn**:
   - Tự động sao lưu an toàn CSDL hiện tại vào thư mục `~/.quaythuongdha-backups/` trước khi thao tác.
-  - Xóa toàn bộ dữ liệu bảng `agencies` và reset ID tự tăng `sqlite_sequence` về 1.
-  - Tự động sinh file SQL hoàn chỉnh: `scripts/import_agencies.sql` (nhóm 200 dòng/lệnh INSERT, escape chuỗi an toàn).
-  - Nạp trực tiếp 7.235 đại lý vào SQLite `data.db`.
+  - **Không xóa dữ liệu cũ**: Đối soát từng mã đại lý trong file CSV với Database.
+  - **Thiếu thì thêm mới (INSERT)**: Các mã đại lý chưa có trong database sẽ được thêm mới.
+  - **Có rồi thì cập nhật lại (UPDATE)**: Các mã đại lý đã tồn tại sẽ được cập nhật thông tin mới nhất (`Tên`, `Tỉnh/TP`, `Địa chỉ`) nếu có thay đổi.
+  - Tự động sinh file SQL hoàn chỉnh: `scripts/import_agencies.sql` (sử dụng cú pháp `INSERT ... ON CONFLICT(code) DO UPDATE SET ...`).
+  - Hỗ trợ chế độ kiểm tra trước không ghi DB: `node scripts/import-daily.js --dry-run`.
 - **Lệnh thực thi**:
   ```sh
-  npm run db:import-agencies
+  # Kiểm tra đối soát trước (không ghi database)
+  node scripts/import-daily.js --dry-run
+
+  # Nạp chính thức từ docs/import_daily.csv
+  npm run db:import-daily
+
+  # Hoặc nạp từ file CSV khác tùy ý
+  node scripts/import-daily.js path/to/another_daily.csv
   ```
 - Hoặc nạp bằng client SQLite bên ngoài:
   ```sh
