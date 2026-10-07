@@ -105,13 +105,15 @@ function createLottery(db, drawInteger = randomInt) {
       return decision;
     }
     const multiplier = spinNumber === 14 ? 4 : 3;
-    if (!(decision.countA < decision.countB * multiplier)) {
+    const winningSlots = Math.max(0, Math.min(multiplier, decision.countA - decision.countB * multiplier + 1));
+    if (winningSlots === 0) {
       decision.reason = 'FORMULA_FALSE_CASH';
       return decision;
     }
-    const winsGold = spinNumber === 14 ? drawInteger(0, 4) === 0 : drawInteger(0, 10000) < 3333;
+    const guaranteedGold = winningSlots === multiplier;
+    const winsGold = guaranteedGold || drawInteger(0, multiplier) < winningSlots;
     decision.prizeCode = winsGold ? goldCode : decision.prizeCode;
-    decision.reason = winsGold ? 'RANDOM_GOLD' : 'RANDOM_CASH';
+    decision.reason = guaranteedGold ? 'GUARANTEED_GOLD' : winsGold ? 'RANDOM_GOLD' : 'RANDOM_CASH';
     return decision;
   }
 

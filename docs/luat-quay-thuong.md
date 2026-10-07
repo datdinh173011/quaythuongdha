@@ -1,6 +1,6 @@
 # Luật quay thưởng DHA — theo SĐT
 
-Phiên bản luật: **phone-v3**. Cập nhật: **2026-09-13**.
+Phiên bản luật: **phone-v3**. Cập nhật công thức: **2026-10-07**.
 
 Tài liệu mô tả code hiện tại, không xác nhận database vận hành đã chuyển đổi. Không có kỳ thưởng; SĐT chuẩn hóa là khóa người tham gia duy nhất. Phiên bản luật chỉ phục vụ kiểm toán, không chia/reset bộ đếm.
 
@@ -14,7 +14,7 @@ Nguồn: [bộ máy thưởng](../lottery.js), [schema/migration](../lotterySche
 | Có được đổi đại lý? | Có. Chọn đại lý hợp lệ ở từng lượt; không reset bộ đếm/quyền nhận thưởng. |
 | Lịch sử cũ có tính tiếp? | Có. Đánh số theo thời gian, rồi ID nếu cùng thời điểm, cho từng SĐT; giữ nguyên quà cũ. |
 | Có hủy lượt cũ được không? | Có, nếu là lượt có hiệu lực cuối cùng của SĐT; hoàn đúng quà và mã cũ. |
-| Công thức vàng? | Giữ nguyên `a < b * 4` ở lượt 14; `a < b * 3` ở lượt 25. |
+| Công thức vàng? | Lượt 14: `a < b * 4` trả 50k, còn lại xác suất `(a - b * 4 + 1) / 4`. Lượt 25: `a < b * 3` trả 100k, còn lại xác suất `(a - b * 3 + 1) / 3`. Giới hạn 0–100%, không trúng vàng trả tiền. |
 | Có chia nhóm/giữ chỗ vàng? | Không. Không cam kết đúng một vàng trên 4/3 người. |
 | Sau lượt 30? | Lặp lịch 30 vị trí, số lượt tuyệt đối vẫn tăng. |
 | Vàng/500k có lặp? | Không; chỉ xét vàng ở lượt tuyệt đối 14/25, 500k ở lượt 8. Giới hạn tính cả quà cũ chưa hủy. |
@@ -22,7 +22,7 @@ Nguồn: [bộ máy thưởng](../lottery.js), [schema/migration](../lotterySche
 | Quay lại có kết quả cũ? | Không; ID mới, xét dữ liệu/kho hiện tại, random mới nếu đủ điều kiện. |
 | Kiểm tra doanh số/OTP? | Chưa. Mã dự thưởng hợp lệ vẫn bắt buộc; “mốc nhập” chưa được kiểm tra bằng dữ liệu doanh số. |
 
-**Hệ quả công thức:** nếu không có lịch sử trúng vàng tại các mốc tương ứng thì `b = 0`, điều kiện nhỏ hơn luôn sai. Hệ thống không tự phát vàng đầu tiên. Không đảo dấu, thêm giải khởi tạo hoặc seed người trúng trong vận hành. Legacy có thể đóng góp `b` nếu đúng mốc và đúng quà; fixture trúng mẫu chỉ dùng kiểm thử.
+**Hệ quả công thức:** khi `a = b = 0`, xác suất vàng đầu tiên là 1/4 ở lượt 14 hoặc 1/3 ở lượt 25 nếu đủ điều kiện và còn kho. Không cần seed người trúng trong vận hành. Khi số người chưa trúng tăng, xác suất tăng từng nấc đến 100%. Lịch sử legacy/phone-v3 vẫn đóng góp a/b nếu đúng mốc và đúng quà; phiên bản luật không chia bộ đếm.
 
 ## 2. Định nghĩa và lịch quà
 
@@ -59,16 +59,28 @@ Mỗi SĐT tối đa một vàng (NHI hoặc NHAT) và một BA trên **toàn b�
 
 - `a`: số SĐT đã có kết quả lượt 14; `b`: số SĐT trong tập đó nhận NHI tại lượt 14.
 - Lưu a/b để đối soát. Nếu SĐT đã có vàng tại bất kỳ lượt nào hoặc hết NHI: trả 50k.
-- Nếu `a < b * 4`: `crypto.randomInt(0, 4) === 0`, 25% NHI và 75% MAYMAN2. Không thỏa: MAYMAN2.
+- Nếu `a < b * 4`: MAYMAN2, không random. Còn lại xác suất NHI là `min(1, (a - b * 4 + 1) / 4)`; không trúng trả MAYMAN2.
 
 ### Lượt tuyệt đối 25
 
 - `a`: số SĐT đã có lượt 25 và có lượt 14 active nhận MAYMAN2; `b`: số SĐT trong tập đó nhận NHAT tại lượt 25.
 - Lưu a/b kể cả khi SĐT đang quay không đủ điều kiện. Nếu đã có vàng tại bất kỳ lượt nào: trả 100k.
 - Thiếu lượt 14 hoặc lượt 14 không nhận MAYMAN2: trả 100k, không đủ điều kiện xét vàng. Hết NHAT: trả 100k.
-- Nếu `a < b * 3`: `crypto.randomInt(0, 10000) < 3333`, đúng 33,33% NHAT và 66,67% MAYMAN1. Không thỏa: MAYMAN1.
+- Nếu `a < b * 3`: MAYMAN1, không random. Còn lại xác suất NHAT là `min(1, (a - b * 3 + 1) / 3)`; không trúng trả MAYMAN1. Dùng chính xác 1/3 hoặc 2/3, không làm tròn thành 33,33%/66,67%.
 
-Ví dụ: mốc 14 với a = 3, b = 1 được random; a = 4 hoặc 5 chỉ tiền. Mốc 25 với a = 2, b = 1 được random; a = 3 hoặc 4 chỉ tiền. Đây là ví dụ kiểm thử, không phải cơ chế tạo người trúng.
+### Random và giới hạn xác suất
+
+Với `k = 4` ở lượt 14 hoặc `k = 3` ở lượt 25:
+
+```js
+const winningSlots = Math.max(0, Math.min(k, a - b * k + 1));
+const winsGold = winningSlots === k
+  || (winningSlots > 0 && crypto.randomInt(0, k) < winningSlots);
+```
+
+Xác suất bằng `winningSlots / k`: 0% trả tiền, 100% chắc chắn vàng, cả hai không gọi random. Các kiểm tra đã có vàng, điều kiện lượt 14 và hết vàng được thực hiện trước công thức.
+
+Ví dụ b = 1: mốc 14 với a < 4 chỉ tiền, a = 4/5/6/7 lần lượt có xác suất 25%/50%/75%/100%; mốc 25 với a < 3 chỉ tiền, a = 3/4/5 lần lượt có xác suất 1/3, 2/3, 100%. Vượt 100% được chặn ở 100%, không báo lỗi.
 
 | decision_reason | Ý nghĩa |
 | --- | --- |
@@ -78,8 +90,9 @@ Ví dụ: mốc 14 với a = 3, b = 1 được random; a = 4 hoặc 5 chỉ ti�
 | GOLD_ALREADY_WON | Đã có vàng active, nhận tiền tại mốc |
 | MILESTONE_14_INELIGIBLE | Lượt 25 không có lượt 14 nhận MAYMAN2 |
 | GOLD_OUT_OF_STOCK_CASH | Hết vàng, chuyển tiền |
-| FORMULA_FALSE_CASH | Điều kiện nhỏ hơn không thỏa |
+| FORMULA_FALSE_CASH | Theo công thức mới: xác suất 0%, tức a < b × k, nhận tiền. Trước khi cập nhật: điều kiện nhỏ hơn không thỏa; đối chiếu thời điểm triển khai để phân biệt |
 | RANDOM_GOLD / RANDOM_CASH | Kết quả random khi đủ điều kiện |
+| GUARANTEED_GOLD | Xác suất đạt hoặc vượt 100%, nhận vàng không random |
 | LEGACY_IMPORTED | Quà cũ giữ nguyên, nhập vào chuỗi lượt theo SĐT |
 
 ## 4. Kho, giao dịch và hủy lượt
@@ -115,6 +128,12 @@ Hủy thay đổi a/b tương lai, không sửa kết quả hoặc a/b đã lưu
 
 ## 6. Migration và vận hành
 
+### Cập nhật công thức xác suất vàng
+
+Database đã sẵn sàng giữ `rule_version = phone-v3` và marker `phone-only-v3`. Chỉ cập nhật ứng dụng và khởi động lại; không cần chạy migration database cho thay đổi công thức này. Giữ nguyên lịch sử, bộ đếm, kho và mã. Công thức mới áp dụng cho lượt phát sinh tiếp theo, kể cả quay lại sau khi hủy. Ghi nhận thời điểm triển khai để phân biệt giai đoạn áp dụng công thức cũ/mới khi đối soát decision_a/b, decision_reason và biến động kho.
+
+### Chuyển đổi database legacy chưa sẵn sàng
+
 1. Dừng tất cả server/worker; chọn đúng `DATABASE_PATH`, giữ nguyên múi giờ server.
 2. Chạy `npm run db:migrate`. Lệnh yêu cầu database tồn tại, đọc .env, backup nhất quán bằng SQLite backup API vào `~/.quaythuongdha-backups/before-phone-v3-<timestamp>-<uuid>.db` trước migration. Backup ngoài static, file quyền 0600.
 3. Transaction immediate kiểm tra sáu mã quà, không có dữ liệu kỳ/nhóm hoặc giữ chỗ. Dữ liệu đã có luật/kỳ khác phải đối soát riêng, không tự gộp.
@@ -145,4 +164,4 @@ Không restore backup sau khi có lượt mới nếu chưa đối soát. Mọi 
 
 ## 7. Nghiệm thu
 
-`npm run verify:lottery` dùng database tạm: lịch 1–90; SĐT/đại lý; nhánh nhỏ hơn/bằng/lớn hơn, biên random; legacy/bộ đếm/giới hạn; thiếu kho/rollback; hủy/quay lại; nhiều kết nối đồng thời; migration/backup/idempotent/restart/dữ liệu sai; Sheets sai thứ tự/phiên bản; API, Excel, static và tài liệu. Không gọi webhook thật hoặc phát thưởng trên database vận hành.
+`npm run verify:lottery` dùng database tạm: lịch 1–90; SĐT/đại lý; a = b = 0 phát được vàng đầu tiên, dưới ngưỡng/bằng ngưỡng/từng nấc/đạt và vượt 100%, mọi kết quả random; giữ lịch sử legacy/phone-v3 và phiên bản phone-v3 cho lượt mới; bộ đếm/giới hạn; thiếu kho/rollback; hủy/quay lại; nhiều kết nối đồng thời; kiểm thử hồi quy migration/backup/idempotent/restart/dữ liệu sai; Sheets sai thứ tự/phiên bản; API, Excel, static và tài liệu. Không gọi webhook thật hoặc phát thưởng trên database vận hành. Nghiệm thu thay đổi công thức bằng `npm run verify:lottery` và `git diff --check`; `verify:form` nằm ngoài phạm vi thay đổi backend này.

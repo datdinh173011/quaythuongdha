@@ -4,7 +4,7 @@
 
 Ứng dụng quay thưởng bằng mã dự thưởng, gồm giao diện người tham gia và trang quản trị. Một tiến trình Node.js phục vụ cả giao diện, API và tác vụ đồng bộ Google Sheets; dữ liệu được lưu trong SQLite trên máy chạy ứng dụng.
 
-Luật hiện hành: [Luật quay thưởng theo SĐT — phone-v3](docs/luat-quay-thuong.md). [Models và trường dữ liệu](docs/schema.md). SĐT chuẩn hóa là khóa duy nhất, cộng cả lịch sử cũ; không có kỳ thưởng. Lặp lịch 30 lượt, vàng chỉ xét lượt tuyệt đối 14/25, 500k chỉ lượt 8; giới hạn tính cả quà cũ chưa hủy. Giữ nguyên `a < b * 4/3`: nếu b = 0 thì không tự phát vàng. Admin được hủy lượt cuối từng SĐT, kể cả lượt cũ, và quay lại theo luật hiện tại.
+Luật hiện hành: [Luật quay thưởng theo SĐT — phone-v3](docs/luat-quay-thuong.md). [Models và trường dữ liệu](docs/schema.md). SĐT chuẩn hóa là khóa duy nhất, cộng cả lịch sử cũ; không có kỳ thưởng. Lặp lịch 30 lượt, vàng chỉ xét lượt tuyệt đối 14/25, 500k chỉ lượt 8; giới hạn tính cả quà cũ chưa hủy. Với hệ số k = 4 ở lượt 14 và k = 3 ở lượt 25: `a < b * k` trả tiền; còn lại xác suất vàng `(a - b * k + 1) / k`, giới hạn 0–100%, tạch trả tiền. Khi a = b = 0, xác suất vàng đầu tiên là 1/4 hoặc 1/3. Admin được hủy lượt cuối từng SĐT, kể cả lượt cũ, và quay lại theo luật hiện tại. Giữ phiên bản phone-v3 và lịch sử/bộ đếm; chỉ cập nhật ứng dụng và khởi động lại, không cần migration trên database đã sẵn sàng. Ghi nhận thời điểm triển khai để đối soát công thức cũ/mới.
 
 > **Cần đánh giá bảo mật trước khi public.** Static đã giới hạn vào tài nguyên giao diện để không lộ database, mã nguồn backend và vị trí trúng. Cơ chế xác thực admin vẫn chưa phù hợp cho production. Đọc mục **Lưu ý bảo mật và giới hạn hiện tại** trước khi triển khai ra Internet.
 

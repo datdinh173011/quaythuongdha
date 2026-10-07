@@ -162,9 +162,9 @@ async function main() {
       rollback(database, () => engine.spin(invalid), 'INVALID_AGENCY');
       close(database);
     });
-    await check('Lịch 1–90; b=0 không vàng; không giới hạn 30', () => {
+    await check('Lịch 1–90 với random tạch; không giới hạn 30', () => {
       const database = fixture();
-      const engine = createLottery(database, () => { throw new Error('Không được random khi b=0'); });
+      const engine = createLottery(database, (minimum, maximum) => maximum - 1);
       assert.deepEqual(SCHEDULE, expected);
       for (let count = 1; count <= 90; count++) {
         const result = engine.spin(input(database));
@@ -181,36 +181,127 @@ async function main() {
     });
     for (const milestone of [14, 25]) {
       const multiplier = milestone === 14 ? 4 : 3;
-      for (const countA of [multiplier - 1, multiplier, multiplier + 1]) {
-        for (const randomValue of milestone === 14 ? [0, 1, 3] : [0, 3332, 3333, 9999]) {
-          await check(`Công thức mốc ${milestone}: a=${countA}, b=1, random=${randomValue}`, () => {
+      // Each tuple specifies a, b and the expected number of winning outcomes.
+      const cases = milestone === 14
+        ? [[0, 0, 1], [1, 0, 2], [2, 0, 3], [3, 0, 4], [5, 0, 4],
+          [1, 1, 0], [3, 1, 0], [4, 1, 1], [5, 1, 2], [6, 1, 3], [7, 1, 4], [9, 1, 4],
+          [6, 2, 0], [7, 2, 0], [8, 2, 1], [9, 2, 2], [10, 2, 3], [11, 2, 4], [13, 2, 4]]
+        : [[0, 0, 1], [1, 0, 2], [2, 0, 3], [4, 0, 3],
+          [1, 1, 0], [2, 1, 0], [3, 1, 1], [4, 1, 2], [5, 1, 3], [7, 1, 3],
+          [4, 2, 0], [5, 2, 0], [6, 2, 1], [7, 2, 2], [8, 2, 3], [10, 2, 3]];
+      for (const [countA, countB, winningOutcomes] of cases) {
+        for (let randomValue = 0; randomValue < multiplier; randomValue++) {
+          await check(`Công thức mốc ${milestone}: a=${countA}, b=${countB}, random=${randomValue}`, () => {
             const database = fixture();
             for (let participant = 1; participant <= countA; participant++) {
               const phone = phoneFor(100 + participant);
               if (milestone === 25) seedMilestone(database, phone, 14, 'MAYMAN2');
-              seedMilestone(database, phone, milestone, participant === 1 ? (milestone === 14 ? 'NHI' : 'NHAT') : (milestone === 14 ? 'MAYMAN2' : 'MAYMAN1'));
+              seedMilestone(database, phone, milestone, participant <= countB ? (milestone === 14 ? 'NHI' : 'NHAT') : (milestone === 14 ? 'MAYMAN2' : 'MAYMAN1'));
             }
             database.prepare('INSERT INTO phone_participants VALUES (?, ?)').run(phoneFor(1), milestone - 1);
             if (milestone === 25) seedMilestone(database, phoneFor(1), 14, 'MAYMAN2');
+            const oldLogs = database.prepare('SELECT * FROM spin_logs ORDER BY id').all();
             let calls = 0;
             const engine = createLottery(database, (minimum, maximum) => {
               calls++;
               assert.equal(minimum, 0);
-              assert.equal(maximum, milestone === 14 ? 4 : 10000);
+              assert.equal(maximum, multiplier);
               return randomValue;
             });
             engine.spin(input(database));
             const log = latest(database);
-            const allowed = countA < multiplier;
-            const won = allowed && (milestone === 14 ? randomValue === 0 : randomValue < 3333);
-            assert.equal(calls, allowed ? 1 : 0);
+            const randomNeeded = winningOutcomes > 0 && winningOutcomes < multiplier;
+            const won = randomValue < winningOutcomes;
+            assert.equal(calls, randomNeeded ? 1 : 0);
             assert.equal(log.decision_a, countA);
-            assert.equal(log.decision_b, 1);
+            assert.equal(log.decision_b, countB);
             assert.equal(log.prize_code, won ? (milestone === 14 ? 'NHI' : 'NHAT') : (milestone === 14 ? 'MAYMAN2' : 'MAYMAN1'));
+            assert.equal(log.decision_reason, winningOutcomes === 0 ? 'FORMULA_FALSE_CASH'
+              : winningOutcomes === multiplier ? 'GUARANTEED_GOLD' : won ? 'RANDOM_GOLD' : 'RANDOM_CASH');
+            assert.equal(log.rule_version, 'phone-v3');
+            assert.deepEqual(database.prepare('SELECT * FROM spin_logs WHERE id < ? ORDER BY id').all(log.id), oldLogs);
             close(database);
           });
         }
       }
+    }
+    await check('Điều kiện SĐT ưu tiên công thức, không random khi không đủ điều kiện', () => {
+      for (const [milestone, earlierSpin, earlierPrize, reason] of [
+        [14, 1, 'NHAT', 'GOLD_ALREADY_WON'],
+        [25, 14, 'NHI', 'GOLD_ALREADY_WON'],
+        [25, 1, 'NHAT', 'GOLD_ALREADY_WON'],
+        [25, null, null, 'MILESTONE_14_INELIGIBLE'],
+        [25, 14, 'MAYMAN1', 'MILESTONE_14_INELIGIBLE'],
+      ]) {
+        const database = fixture();
+        if (earlierSpin) seedMilestone(database, phoneFor(1), earlierSpin, earlierPrize);
+        database.prepare('INSERT INTO phone_participants VALUES (?, ?) ON CONFLICT(phone) DO UPDATE SET spin_count = excluded.spin_count')
+          .run(phoneFor(1), milestone - 1);
+        createLottery(database, () => { throw new Error('Không được random'); }).spin(input(database));
+        const log = latest(database);
+        assert.equal(log.prize_code, milestone === 14 ? 'MAYMAN2' : 'MAYMAN1');
+        assert.equal(log.decision_reason, reason);
+        assert.equal(log.decision_a, 0);
+        assert.equal(log.decision_b, 0);
+        close(database);
+      }
+    });
+    for (const milestone of [14, 25]) {
+      await check(`Mốc ${milestone}: hết vàng khi xác suất 100%; thiếu tiền rollback rồi quay lại`, () => {
+        const database = fixture();
+        const multiplier = milestone === 14 ? 4 : 3;
+        for (let participant = 1; participant < multiplier; participant++) {
+          const phone = phoneFor(100 + participant);
+          if (milestone === 25) seedMilestone(database, phone, 14, 'MAYMAN2');
+          seedMilestone(database, phone, milestone, milestone === 14 ? 'MAYMAN2' : 'MAYMAN1');
+        }
+        database.prepare('INSERT INTO phone_participants VALUES (?, ?)').run(phoneFor(1), milestone - 1);
+        if (milestone === 25) seedMilestone(database, phoneFor(1), 14, 'MAYMAN2');
+        const engine = createLottery(database, () => { throw new Error('Không được random'); });
+        const entry = input(database);
+        const cashCode = milestone === 14 ? 'MAYMAN2' : 'MAYMAN1';
+        const goldCode = milestone === 14 ? 'NHI' : 'NHAT';
+        database.prepare('UPDATE prizes SET remaining_quantity = 0, total_quantity = used_quantity WHERE code IN (?, ?)')
+          .run(goldCode, cashCode);
+        rollback(database, () => engine.spin(entry), 'OUT_OF_STOCK');
+        database.prepare('UPDATE prizes SET remaining_quantity = 1, total_quantity = used_quantity + 1 WHERE code = ?').run(cashCode);
+        engine.spin(entry);
+        const log = latest(database);
+        assert.equal(log.prize_code, cashCode);
+        assert.equal(log.decision_reason, 'GOLD_OUT_OF_STOCK_CASH');
+        assert.equal(log.decision_a, multiplier - 1);
+        assert.equal(log.decision_b, 0);
+        assert.equal(database.prepare('SELECT status FROM lucky_codes WHERE code = ?').get(entry.entryCode).status, 'used');
+        close(database);
+      });
+      await check(`Mốc ${milestone}: database sẵn sàng giữ phone-v3 và dữ liệu, hủy lượt cũ rồi quay theo công thức mới`, () => {
+        const database = fixture();
+        const multiplier = milestone === 14 ? 4 : 3;
+        for (let participant = 1; participant <= multiplier; participant++) {
+          const phone = phoneFor(participant);
+          if (milestone === 25) seedMilestone(database, phone, 14, 'MAYMAN2');
+          seedMilestone(database, phone, milestone, participant === 1 ? (milestone === 14 ? 'NHI' : 'NHAT') : (milestone === 14 ? 'MAYMAN2' : 'MAYMAN1'));
+        }
+        const oldLog = latest(database);
+        const before = snapshot(database);
+        assert(database.prepare("SELECT 1 FROM schema_migrations WHERE version = 'phone-only-v3'").get());
+        assert.equal(oldLog.rule_version, 'phone-v3');
+        const engine = createLottery(database, () => { throw new Error('Xác suất 100% không được random'); });
+        assert.equal(snapshot(database), before);
+        engine.undo(oldLog.id);
+        engine.spin({ ...input(database), entryCode: oldLog.entry_code });
+        const replay = latest(database);
+        assert.equal(replay.rule_version, 'phone-v3');
+        assert.equal(replay.prize_code, oldLog.prize_code);
+        assert.equal(replay.decision_reason, 'GUARANTEED_GOLD');
+        assert.equal(replay.decision_a, multiplier - 1);
+        assert.equal(replay.decision_b, 0);
+        const voided = database.prepare('SELECT * FROM spin_logs WHERE id = ?').get(oldLog.id);
+        assert.equal(voided.rule_version, 'phone-v3');
+        assert.equal(voided.status, 'void');
+        assert.notEqual(replay.id, oldLog.id);
+        close(database);
+      });
     }
     await check('Mốc 25 loại SĐT đã vàng/thiếu mốc 14; vàng hết chuyển tiền', () => {
       for (const previous of ['NHI', null, 'MAYMAN2']) {
@@ -239,7 +330,7 @@ async function main() {
     });
     await check('Hủy từng SĐT, liên tiếp, giữ audit và quay lại mã cũ/mã mới', () => {
       const database = fixture();
-      const engine = createLottery(database);
+      const engine = createLottery(database, (minimum, maximum) => maximum - 1);
       advance(database, engine, phoneFor(1), 15);
       const last = latest(database);
       const previous = database.prepare('SELECT * FROM spin_logs WHERE spin_number = 14').get();
@@ -261,25 +352,39 @@ async function main() {
       assert.throws(() => database.prepare('DELETE FROM spin_logs WHERE id = ?').run(previous.id), /SPIN_LOCKED/);
       close(database);
     });
-    await check('Hủy vàng cập nhật a/b; replay random mới; không sửa kết quả người khác', () => {
-      const database = fixture();
-      seedMilestone(database, phoneFor(99), 14, 'NHI');
-      database.prepare('INSERT INTO phone_participants VALUES (?, 13)').run(phoneFor(1));
-      let draw = 0;
-      const engine = createLottery(database, () => draw);
-      engine.spin(input(database));
-      const winner = latest(database);
-      const other = JSON.stringify(latest(database, phoneFor(99)));
-      assert.equal(winner.prize_code, 'NHI');
-      assert.equal(milestoneCounts(database, 14).gold_count, 2);
-      engine.undo(winner.id);
-      assert.equal(milestoneCounts(database, 14).gold_count, 1);
-      draw = 1;
-      engine.spin({ ...input(database), entryCode: winner.entry_code });
-      assert.equal(latest(database).prize_code, 'MAYMAN2');
-      assert.equal(JSON.stringify(latest(database, phoneFor(99))), other);
-      close(database);
-    });
+    for (const milestone of [14, 25]) {
+      await check(`Hủy vàng mốc ${milestone} cập nhật a/b; replay random mới; giữ lịch sử`, () => {
+        const database = fixture();
+        const multiplier = milestone === 14 ? 4 : 3;
+        for (let participant = 1; participant <= multiplier; participant++) {
+          const phone = phoneFor(100 + participant);
+          if (milestone === 25) seedMilestone(database, phone, 14, 'MAYMAN2');
+          seedMilestone(database, phone, milestone, participant === 1 ? (milestone === 14 ? 'NHI' : 'NHAT') : (milestone === 14 ? 'MAYMAN2' : 'MAYMAN1'));
+        }
+        database.prepare('INSERT INTO phone_participants VALUES (?, ?)').run(phoneFor(1), milestone - 1);
+        if (milestone === 25) seedMilestone(database, phoneFor(1), 14, 'MAYMAN2');
+        let draw = 0;
+        const engine = createLottery(database, () => draw);
+        engine.spin(input(database));
+        const winner = latest(database);
+        const other = JSON.stringify(latest(database, phoneFor(101)));
+        assert.equal(winner.prize_code, milestone === 14 ? 'NHI' : 'NHAT');
+        assert.equal(winner.rule_version, 'phone-v3');
+        assert.deepEqual(milestoneCounts(database, milestone), { eligible_count: multiplier + 1, gold_count: 2 });
+        engine.undo(winner.id);
+        assert.deepEqual(milestoneCounts(database, milestone), { eligible_count: multiplier, gold_count: 1 });
+        draw = 1;
+        engine.spin({ ...input(database), entryCode: winner.entry_code });
+        const replay = latest(database);
+        assert.equal(replay.prize_code, milestone === 14 ? 'MAYMAN2' : 'MAYMAN1');
+        assert.equal(replay.decision_reason, 'RANDOM_CASH');
+        assert.equal(replay.decision_a, multiplier);
+        assert.equal(replay.decision_b, 1);
+        assert.notEqual(replay.id, winner.id);
+        assert.equal(JSON.stringify(latest(database, phoneFor(101))), other);
+        close(database);
+      });
+    }
     await check('Lỗi giữa transaction quay/hủy rollback cả kho mã và audit', () => {
       const database = fixture();
       const engine = createLottery(database);
@@ -573,6 +678,38 @@ async function main() {
       assert.equal(database.prepare('SELECT COUNT(*) AS count FROM prizes WHERE remaining_quantity < 0 OR used_quantity < 0').get().count, 0);
       close(database);
     });
+    for (const milestone of [14, 25]) {
+      await check(`Đồng thời mốc ${milestone}: đọc a/b sau commit trước, chỉ phát một vàng`, async () => {
+        const source = fixture();
+        const multiplier = milestone === 14 ? 4 : 3;
+        const goldCode = milestone === 14 ? 'NHI' : 'NHAT';
+        const cashCode = milestone === 14 ? 'MAYMAN2' : 'MAYMAN1';
+        for (let participant = 1; participant <= multiplier; participant++) {
+          const phone = phoneFor(100 + participant);
+          if (milestone === 25) seedMilestone(source, phone, 14, 'MAYMAN2');
+          seedMilestone(source, phone, milestone, participant === 1 ? goldCode : cashCode);
+        }
+        const operations = [1, 2].map(participant => {
+          const phone = phoneFor(participant);
+          source.prepare('INSERT INTO phone_participants VALUES (?, ?)').run(phone, milestone - 1);
+          if (milestone === 25) seedMilestone(source, phone, 14, 'MAYMAN2');
+          return { input: input(source, phone) };
+        });
+        const file = path.join(directory, `concurrent-gold-${milestone}.db`);
+        await source.backup(file);
+        close(source);
+        const results = await parallel(file, operations);
+        assert(results.every(result => result.result?.success));
+        const database = new Database(file);
+        openDatabases.add(database);
+        const decisions = database.prepare('SELECT * FROM spin_logs WHERE normalized_phone IN (?, ?) AND spin_number = ? ORDER BY id')
+          .all(phoneFor(1), phoneFor(2), milestone);
+        assert.deepEqual(decisions.map(log => [log.decision_a, log.decision_b, log.prize_code, log.decision_reason]),
+          [[multiplier, 1, goldCode, 'RANDOM_GOLD'], [multiplier + 1, 2, cashCode, 'FORMULA_FALSE_CASH']]);
+        assert.deepEqual(milestoneCounts(database, milestone), { eligible_count: multiplier + 2, gold_count: 2 });
+        close(database);
+      });
+    }
 
     function sheetHarness() {
       const rows = [];
@@ -705,11 +842,19 @@ async function main() {
       }
       async function request(...args) { const response = await dispatch(...args); return { status: response.status, data: JSON.parse(response.body.toString()) }; }
       assert.deepEqual((await request('/api/banks')).data.banks, [{ code: 'TEST', name: 'Ngân hàng kiểm thử' }]);
+      const prizeRules = (await request('/api/admin/prizes', 'GET', undefined, true)).data.prizes;
+      for (const [code, multiplier, cash] of [['NHI', 4, '50k'], ['NHAT', 3, '100k']]) {
+        const rule = prizeRules.find(prize => prize.code === code).rule;
+        assert(rule.includes(`a < b × ${multiplier} trả ${cash}`));
+        assert(rule.includes(`(a − b × ${multiplier} + 1)/${multiplier} × 100%`));
+        assert(rule.includes('giới hạn 0–100%'));
+      }
       const entry = input(db);
       const firstResponse = (await request('/api/spin', 'POST', entry)).data;
       assert.equal(firstResponse.cycleNumber, 1);
       assert.equal(Object.hasOwn(firstResponse, 'campaignId'), false);
       const first = latest(db);
+      assert.equal(first.rule_version, 'phone-v3');
       const secondEntry = input(db, phoneFor(1), 'DL002');
       await request('/api/spin', 'POST', secondEntry);
       const second = latest(db);
@@ -760,6 +905,7 @@ async function main() {
       for (const filename of ['main.js', 'admin/admin.js', 'server.js', 'lottery.js', 'lotterySchema.js', 'syncWorker.js']) new Script(fs.readFileSync(path.join(__dirname, '..', filename), 'utf8'));
       const rules = fs.readFileSync(path.join(__dirname, '..', 'docs', 'luat-quay-thuong.md'), 'utf8');
       assert(rules.includes('a < b * 4') && rules.includes('a < b * 3') && rules.includes('phone-v3'));
+      assert(rules.includes('GUARANTEED_GOLD') && rules.includes('(a - b * 4 + 1) / 4') && rules.includes('(a - b * 3 + 1) / 3'));
       const documented = new Set();
       for (const line of rules.split('\n')) {
         const match = line.match(/^\| ([0-9, ]+) \| .* \| `([A-Z0-9]+)`/);
