@@ -12,6 +12,7 @@ Nguồn: [bộ máy thưởng](../lottery.js), [schema/migration](../lotterySche
 | --- | --- |
 | Định danh người tham gia? | SĐT chuẩn hóa; không gộp theo đại lý, không chia theo kỳ. |
 | Có được đổi đại lý? | Có. Chọn đại lý hợp lệ ở từng lượt; không reset bộ đếm/quyền nhận thưởng. |
+| Đại lý bị chặn vàng? | Mã trong GOLD_BLOCKED_AGENCY_CODES nhận 50k ở lượt 14, 100k ở lượt 25; không random và không tính kết quả tại đại lý đó vào a/b của mốc tương ứng. |
 | Lịch sử cũ có tính tiếp? | Có. Đánh số theo thời gian, rồi ID nếu cùng thời điểm, cho từng SĐT; giữ nguyên quà cũ. |
 | Có hủy lượt cũ được không? | Có, nếu là lượt có hiệu lực cuối cùng của SĐT; hoàn đúng quà và mã cũ. |
 | Công thức vàng? | Lượt 14: `a < b * 4` trả 50k, còn lại xác suất `(a - b * 4 + 1) / 4`. Lượt 25: `a < b * 3` trả 100k, còn lại xác suất `(a - b * 3 + 1) / 3`. Giới hạn 0–100%, không trúng vàng trả tiền. |
@@ -55,15 +56,32 @@ Mỗi SĐT tối đa một vàng (NHI hoặc NHAT) và một BA trên **toàn b�
 
 Đếm trong transaction, trước lượt đang xử lý, chỉ lấy `active`, bao gồm legacy. Unique SĐT/số lượt bảo đảm đếm bản ghi tương đương đếm SĐT.
 
+### Danh sách đại lý không nhận vàng
+
+Danh sách tập trung tại `GOLD_BLOCKED_AGENCY_CODES` trong [lottery.js](../lottery.js):
+
+```js
+const GOLD_BLOCKED_AGENCY_CODES = new Set([
+  'OTC.DL00020259',
+].map(code => code.trim().toUpperCase()));
+```
+
+- Backend so khớp toàn bộ mã `agencies.code` đã xác thực, bỏ khoảng trắng hai đầu và không phân biệt hoa/thường. Không so theo tên hoặc mã gần giống.
+- Chỉ xét đại lý được chọn ở lượt hiện tại. Tại lượt 14/25, đại lý bị chặn luôn nhận MAYMAN2/MAYMAN1, không random kể cả xác suất 100%; các lượt khác giữ lịch, gồm giải BA.
+- Chặn vàng được kiểm tra sau khi lưu a/b và trước các nhánh xét vàng khác. Hết tiền tương ứng vẫn rollback toàn bộ, không đổi sang vàng.
+- Lọc cả a và b trên toàn bộ lịch sử active, gồm legacy/phone-v3, theo mã đại lý đã lưu tại mốc đang đếm. Mã thiếu/rỗng vẫn được tính như trước. Thống kê quản trị dùng cùng phép đếm với quay thưởng.
+- Nếu lượt 14 tại đại lý bị chặn nhận 50k, lượt 25 chọn đại lý khác vẫn được xét vàng nếu đủ điều kiện. Vàng cũ tại đại lý bị chặn vẫn tính vào giới hạn một vàng/SĐT; không sửa kết quả cũ.
+- Thêm mã vào Set rồi deploy/restart ứng dụng; không cần đổi schema hoặc migration. Thêm/bỏ mã áp dụng cho cả lịch sử khi đếm lại a/b, có thể thay đổi xác suất tương lai của đại lý khác. Không cam kết mỗi ba lượt tổng cộng có một vàng khi có lượt bị chặn.
+
 ### Lượt tuyệt đối 14
 
-- `a`: số SĐT đã có kết quả lượt 14; `b`: số SĐT trong tập đó nhận NHI tại lượt 14.
+- `a`: số SĐT đã có kết quả lượt 14 tại đại lý không bị chặn; `b`: số SĐT trong tập đó nhận NHI tại lượt 14.
 - Lưu a/b để đối soát. Nếu SĐT đã có vàng tại bất kỳ lượt nào hoặc hết NHI: trả 50k.
 - Nếu `a < b * 4`: MAYMAN2, không random. Còn lại xác suất NHI là `min(1, (a - b * 4 + 1) / 4)`; không trúng trả MAYMAN2.
 
 ### Lượt tuyệt đối 25
 
-- `a`: số SĐT đã có lượt 25 và có lượt 14 active nhận MAYMAN2; `b`: số SĐT trong tập đó nhận NHAT tại lượt 25.
+- `a`: số SĐT đã có lượt 25 tại đại lý không bị chặn và có lượt 14 active nhận MAYMAN2; `b`: số SĐT trong tập đó nhận NHAT tại lượt 25. Đại lý ở lượt 14 có thể bị chặn; bộ lọc đại lý của mốc 25 chỉ xét kết quả lượt 25.
 - Lưu a/b kể cả khi SĐT đang quay không đủ điều kiện. Nếu đã có vàng tại bất kỳ lượt nào: trả 100k.
 - Thiếu lượt 14 hoặc lượt 14 không nhận MAYMAN2: trả 100k, không đủ điều kiện xét vàng. Hết NHAT: trả 100k.
 - Nếu `a < b * 3`: MAYMAN1, không random. Còn lại xác suất NHAT là `min(1, (a - b * 3 + 1) / 3)`; không trúng trả MAYMAN1. Dùng chính xác 1/3 hoặc 2/3, không làm tròn thành 33,33%/66,67%.
@@ -78,7 +96,7 @@ const winsGold = winningSlots === k
   || (winningSlots > 0 && crypto.randomInt(0, k) < winningSlots);
 ```
 
-Xác suất bằng `winningSlots / k`: 0% trả tiền, 100% chắc chắn vàng, cả hai không gọi random. Các kiểm tra đã có vàng, điều kiện lượt 14 và hết vàng được thực hiện trước công thức.
+Xác suất bằng `winningSlots / k`: 0% trả tiền, 100% chắc chắn vàng, cả hai không gọi random. Các kiểm tra đại lý bị chặn, đã có vàng, điều kiện lượt 14 và hết vàng được thực hiện trước công thức.
 
 Ví dụ b = 1: mốc 14 với a < 4 chỉ tiền, a = 4/5/6/7 lần lượt có xác suất 25%/50%/75%/100%; mốc 25 với a < 3 chỉ tiền, a = 3/4/5 lần lượt có xác suất 1/3, 2/3, 100%. Vượt 100% được chặn ở 100%, không báo lỗi.
 
@@ -87,6 +105,7 @@ Ví dụ b = 1: mốc 14 với a < 4 chỉ tiền, a = 4/5/6/7 lần lượt có
 | SCHEDULE | Quà theo lịch, gồm tiền ở vị trí 14/25 sau vòng đầu |
 | REPEATED_500K_CASH | Vị trí 8 sau vòng đầu nhận 100k |
 | CASH_500K_ALREADY_WON | Lượt 8 nhận 100k vì đã có BA |
+| AGENCY_GOLD_BLOCKED | Đại lý được chọn thuộc danh sách chặn vàng; nhận tiền theo mốc, không random |
 | GOLD_ALREADY_WON | Đã có vàng active, nhận tiền tại mốc |
 | MILESTONE_14_INELIGIBLE | Lượt 25 không có lượt 14 nhận MAYMAN2 |
 | GOLD_OUT_OF_STOCK_CASH | Hết vàng, chuyển tiền |
@@ -164,4 +183,4 @@ Không restore backup sau khi có lượt mới nếu chưa đối soát. Mọi 
 
 ## 7. Nghiệm thu
 
-`npm run verify:lottery` dùng database tạm: lịch 1–90; SĐT/đại lý; a = b = 0 phát được vàng đầu tiên, dưới ngưỡng/bằng ngưỡng/từng nấc/đạt và vượt 100%, mọi kết quả random; giữ lịch sử legacy/phone-v3 và phiên bản phone-v3 cho lượt mới; bộ đếm/giới hạn; thiếu kho/rollback; hủy/quay lại; nhiều kết nối đồng thời; kiểm thử hồi quy migration/backup/idempotent/restart/dữ liệu sai; Sheets sai thứ tự/phiên bản; API, Excel, static và tài liệu. Không gọi webhook thật hoặc phát thưởng trên database vận hành. Nghiệm thu thay đổi công thức bằng `npm run verify:lottery` và `git diff --check`; `verify:form` nằm ngoài phạm vi thay đổi backend này.
+`npm run verify:lottery` dùng database tạm: lịch 1–90; SĐT/đại lý; a = b = 0 phát được vàng đầu tiên, dưới ngưỡng/bằng ngưỡng/từng nấc/đạt và vượt 100%, mọi kết quả random; chặn vàng theo mã, mã gần giống, đổi đại lý, lọc lịch sử và thống kê a/b, thêm mã/danh sách rỗng; giữ lịch sử legacy/phone-v3 và phiên bản phone-v3 cho lượt mới; bộ đếm/giới hạn; thiếu kho/rollback; hủy/quay lại; nhiều kết nối đồng thời; kiểm thử hồi quy migration/backup/idempotent/restart/dữ liệu sai; Sheets sai thứ tự/phiên bản; API, Excel, static và tài liệu. Không gọi webhook thật hoặc phát thưởng trên database vận hành. Nghiệm thu thay đổi công thức bằng `npm run verify:lottery` và `git diff --check`; `verify:form` nằm ngoài phạm vi thay đổi backend này.

@@ -7,7 +7,7 @@ const xlsx = require('xlsx');
 require('dotenv').config();
 
 const db = require('./database');
-const { createLottery, normalizePhone, LotteryError, SCHEDULE, milestoneCounts, undoEligibility } = require('./lottery');
+const { createLottery, normalizePhone, LotteryError, SCHEDULE, milestoneCounts, undoEligibility, GOLD_BLOCKED_AGENCY_CODES } = require('./lottery');
 const { PRIZE_CODES } = require('./lotterySchema');
 const { loadBanks } = require('./bankCatalog');
 const lottery = createLottery(db);
@@ -367,8 +367,11 @@ app.get('/api/admin/prizes', verifyAdmin, (req, res) => {
 
     const enrichedPrizes = prizes.map(p => {
       const fixedSpins = SCHEDULE.flatMap((code, index) => code === p.code ? [index] : []);
-      const rule = p.code === 'NHI' ? 'Lượt tuyệt đối 14, chưa có vàng: a < b × 4 trả 50k; còn lại xác suất (a − b × 4 + 1)/4 × 100% trúng vàng, giới hạn 0–100%; không trúng/hết vàng/đã có vàng trả 50k'
-        : p.code === 'NHAT' ? 'Lượt tuyệt đối 25, lượt 14 nhận 50k và chưa có vàng: a < b × 3 trả 100k; còn lại xác suất (a − b × 3 + 1)/3 × 100% trúng vàng, giới hạn 0–100%; không trúng/hết vàng/đã có vàng trả 100k'
+      const blockedGoldRule = GOLD_BLOCKED_AGENCY_CODES.size
+        ? `; đại lý ${[...GOLD_BLOCKED_AGENCY_CODES].join(', ')} không nhận vàng, không tính vào a/b, nhận tiền theo mốc`
+        : '';
+      const rule = p.code === 'NHI' ? 'Lượt tuyệt đối 14, chưa có vàng: a < b × 4 trả 50k; còn lại xác suất (a − b × 4 + 1)/4 × 100% trúng vàng, giới hạn 0–100%; không trúng/hết vàng/đã có vàng trả 50k' + blockedGoldRule
+        : p.code === 'NHAT' ? 'Lượt tuyệt đối 25, lượt 14 nhận 50k và chưa có vàng: a < b × 3 trả 100k; còn lại xác suất (a − b × 3 + 1)/3 × 100% trúng vàng, giới hạn 0–100%; không trúng/hết vàng/đã có vàng trả 100k' + blockedGoldRule
         : p.code === 'BA' ? 'Chỉ lượt tuyệt đối 8 nếu chưa có 500k; đã nhận hoặc lượt 38, 68… trả 100k'
         : fixedSpins.length ? `Vị trí trong vòng: ${fixedSpins.join(', ')}${p.code === 'MAYMAN1' ? '; thêm lượt 38, 68…' : ''}`
         : 'Không thuộc lịch quà';

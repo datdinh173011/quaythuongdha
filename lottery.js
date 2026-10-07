@@ -2,6 +2,10 @@ const { randomInt } = require('node:crypto');
 const { RULE_VERSION, PRIZE_CODES } = require('./lotterySchema');
 const { loadBanks } = require('./bankCatalog');
 
+const GOLD_BLOCKED_AGENCY_CODES = new Set([
+  'OTC.DL00020259',
+].map(code => code.trim().toUpperCase()));
+
 const SCHEDULE = [
   null, 'MAYMAN2', 'MAYMAN2', 'MAYMAN1', 'MAYMAN1', 'MAYMAN2', 'CAOLON', 'MAYMAN1',
   'BA', 'CAOLON', 'MAYMAN2', 'MAYMAN2', 'MAYMAN1', 'CAOLON', 'MAYMAN2', 'MAYMAN1',
@@ -51,17 +55,22 @@ function assertNoReservations(db) {
 }
 
 function milestoneCounts(db, milestone) {
+  const blockedCodes = [...GOLD_BLOCKED_AGENCY_CODES];
+  const agencyColumn = milestone === 14 ? 'agency_code' : 'later.agency_code';
+  const agencyFilter = blockedCodes.length
+    ? ` AND COALESCE(UPPER(TRIM(${agencyColumn})), '') NOT IN (${blockedCodes.map(() => '?').join(', ')})`
+    : '';
   if (milestone === 14) {
     return db.prepare(`SELECT COUNT(*) AS eligible_count,
       COALESCE(SUM(CASE WHEN prize_code = 'NHI' THEN 1 ELSE 0 END), 0) AS gold_count
-      FROM spin_logs WHERE spin_number = 14 AND status = 'active'`).get();
+      FROM spin_logs WHERE spin_number = 14 AND status = 'active'${agencyFilter}`).get(...blockedCodes);
   }
   return db.prepare(`SELECT COUNT(*) AS eligible_count,
     COALESCE(SUM(CASE WHEN later.prize_code = 'NHAT' THEN 1 ELSE 0 END), 0) AS gold_count
     FROM spin_logs later JOIN spin_logs earlier
       ON earlier.normalized_phone = later.normalized_phone
       AND earlier.spin_number = 14 AND earlier.status = 'active' AND earlier.prize_code = 'MAYMAN2'
-    WHERE later.spin_number = 25 AND later.status = 'active'`).get();
+    WHERE later.spin_number = 25 AND later.status = 'active'${agencyFilter}`).get(...blockedCodes);
 }
 
 function undoEligibility(db, log) {
@@ -73,7 +82,7 @@ function undoEligibility(db, log) {
 }
 
 function createLottery(db, drawInteger = randomInt) {
-  function decidePrize(phone, spinNumber, prizes) {
+  function decidePrize(phone, spinNumber, prizes, agencyCode) {
     const position = ((spinNumber - 1) % 30) + 1;
     const decision = { prizeCode: position === 8 && spinNumber !== 8 ? 'MAYMAN1' : SCHEDULE[position],
       reason: position === 8 && spinNumber !== 8 ? 'REPEATED_500K_CASH' : 'SCHEDULE', countA: null, countB: null };
@@ -87,6 +96,10 @@ function createLottery(db, drawInteger = randomInt) {
     const counts = milestoneCounts(db, spinNumber);
     decision.countA = counts.eligible_count;
     decision.countB = counts.gold_count;
+    if (GOLD_BLOCKED_AGENCY_CODES.has(agencyCode.trim().toUpperCase())) {
+      decision.reason = 'AGENCY_GOLD_BLOCKED';
+      return decision;
+    }
     if (previousAwards.some(award => award.prize_code === 'NHI' || award.prize_code === 'NHAT')) {
       decision.reason = 'GOLD_ALREADY_WON';
       return decision;
@@ -150,7 +163,7 @@ function createLottery(db, drawInteger = randomInt) {
     const positionInCycle = ((spinNumber - 1) % 30) + 1;
     const prizes = validatePrizeConfiguration(db);
     assertNoReservations(db);
-    const decision = decidePrize(phone, spinNumber, prizes);
+    const decision = decidePrize(phone, spinNumber, prizes, agency.code);
     const prize = prizes.get(decision.prizeCode);
     const stockChange = db.prepare(`UPDATE prizes SET remaining_quantity = remaining_quantity - 1,
       used_quantity = used_quantity + 1 WHERE id = ? AND remaining_quantity > 0 AND reserved_quantity = 0`).run(prize.id);
@@ -197,4 +210,4 @@ function createLottery(db, drawInteger = randomInt) {
   return { spin: input => spinTransaction.immediate(input), undo: (id, actor = 'admin') => undoTransaction.immediate(id, actor) };
 }
 
-module.exports = { createLottery, normalizePhone, validatePrizeConfiguration, LotteryError, SCHEDULE, milestoneCounts, undoEligibility };
+module.exports = { createLottery, normalizePhone, validatePrizeConfiguration, LotteryError, SCHEDULE, milestoneCounts, undoEligibility, GOLD_BLOCKED_AGENCY_CODES };

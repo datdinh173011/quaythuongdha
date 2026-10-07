@@ -8,7 +8,7 @@ const { IncomingMessage, ServerResponse } = require('node:http');
 const { Duplex } = require('node:stream');
 const { Script, createContext } = require('node:vm');
 const Database = require('better-sqlite3');
-const { createLottery, validatePrizeConfiguration, normalizePhone, milestoneCounts, undoEligibility, SCHEDULE } = require('../lottery');
+const { createLottery, validatePrizeConfiguration, normalizePhone, milestoneCounts, undoEligibility, SCHEDULE, GOLD_BLOCKED_AGENCY_CODES } = require('../lottery');
 const { migrateCampaign: migrateLottery } = require('../campaignSchema');
 
 if (!isMainThread) {
@@ -55,9 +55,9 @@ async function main() {
     return { phone, agencyCode, entryCode, bankName: 'Ngân hàng kiểm thử', bankAccountNumber: '00123456789',
       bankAccountHolderName: 'Nguyễn Văn Kiểm Thử', address: 'Số 123 Đường Cầu Giấy, Hà Nội', province: 'ignored', agencyName: 'ignored' };
   }
-  function advance(database, engine, phone, target) {
+  function advance(database, engine, phone, target, agencyCode = 'DL001') {
     let current = database.prepare('SELECT spin_count FROM phone_participants WHERE phone = ?').get(phone)?.spin_count || 0;
-    while (current < target) { engine.spin(input(database, phone)); current++; }
+    while (current < target) { engine.spin(input(database, phone, agencyCode)); current++; }
     return latest(database, phone);
   }
   function latest(database, phone = phoneFor(1)) {
@@ -73,17 +73,30 @@ async function main() {
   }
   function close(database) { database.close(); openDatabases.delete(database); }
   async function check(name, operation) { await operation(); checks++; console.log(`PASS ${name}`); }
-  function seedMilestone(database, phone, milestone, prizeCode) {
+  function addAgency(database, code) {
+    database.prepare('INSERT OR IGNORE INTO agencies (code, name, province, address) VALUES (?, ?, ?, ?)')
+      .run(code, 'Đại lý kiểm thử', 'Hà Nội', 'Địa chỉ kiểm thử');
+  }
+  function seedMilestone(database, phone, milestone, prizeCode, agencyCode = 'DL001', ruleVersion = 'phone-v3') {
     const prize = database.prepare('SELECT * FROM prizes WHERE code = ?').get(prizeCode);
     const entry = input(database, phone);
     database.prepare('UPDATE prizes SET remaining_quantity = remaining_quantity - 1, used_quantity = used_quantity + 1 WHERE id = ?').run(prize.id);
     const result = database.prepare(`INSERT INTO spin_logs (normalized_phone, phone, spin_number, prize_id, prize_code,
       prize_name, rule_version, entry_code, agency_code, cycle_number, position_in_cycle)
-      VALUES (?, ?, ?, ?, ?, ?, 'phone-v3', ?, 'DL001', 1, ?)`)
-      .run(phone, phone, milestone, prize.id, prize.code, prize.name, entry.entryCode, milestone);
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?)`)
+      .run(phone, phone, milestone, prize.id, prize.code, prize.name, ruleVersion, entry.entryCode, agencyCode, milestone);
     database.prepare("UPDATE lucky_codes SET status = 'used', spin_log_id = ? WHERE code = ?").run(result.lastInsertRowid, entry.entryCode);
     database.prepare(`INSERT INTO phone_participants VALUES (?, ?) ON CONFLICT(phone)
       DO UPDATE SET spin_count = MAX(spin_count, excluded.spin_count)`).run(phone, milestone);
+  }
+  function prepareMilestone(database, milestone, countA = 0, countB = 0) {
+    for (let participant = 1; participant <= countA; participant++) {
+      const phone = phoneFor(100 + participant);
+      if (milestone === 25) seedMilestone(database, phone, 14, 'MAYMAN2');
+      seedMilestone(database, phone, milestone, participant <= countB ? (milestone === 14 ? 'NHI' : 'NHAT') : (milestone === 14 ? 'MAYMAN2' : 'MAYMAN1'));
+    }
+    database.prepare('INSERT INTO phone_participants VALUES (?, ?)').run(phoneFor(1), milestone - 1);
+    if (milestone === 25) seedMilestone(database, phoneFor(1), 14, 'MAYMAN2');
   }
   try {
     db.exec('UPDATE prizes SET remaining_quantity = 10000, total_quantity = 10000, used_quantity = 0');
@@ -225,6 +238,174 @@ async function main() {
         }
       }
     }
+    const blockedAgencyCode = 'OTC.DL00020259';
+    for (const milestone of [14, 25]) {
+      const multiplier = milestone === 14 ? 4 : 3;
+      for (const [countA, countB] of [[0, 0], [multiplier - 1, 0], [multiplier, 1]]) {
+        for (const agencyCode of [blockedAgencyCode, blockedAgencyCode.toLowerCase()]) {
+          await check(`Đại lý chặn vàng: mốc ${milestone}, a=${countA}, b=${countB}, mã=${agencyCode}`, () => {
+            const database = fixture();
+            addAgency(database, agencyCode);
+            prepareMilestone(database, milestone, countA, countB);
+            const engine = createLottery(database, () => { throw new Error('Đại lý bị chặn không được random'); });
+            const goldCode = milestone === 14 ? 'NHI' : 'NHAT';
+            const cashCode = milestone === 14 ? 'MAYMAN2' : 'MAYMAN1';
+            const oldGold = database.prepare('SELECT * FROM prizes WHERE code = ?').get(goldCode);
+            const oldCash = database.prepare('SELECT * FROM prizes WHERE code = ?').get(cashCode);
+            engine.spin(input(database, phoneFor(1), ` ${agencyCode} `));
+            const log = latest(database);
+            assert.equal(log.prize_code, cashCode);
+            assert.equal(log.agency_code, agencyCode);
+            assert.equal(log.decision_reason, 'AGENCY_GOLD_BLOCKED');
+            assert.equal(log.decision_a, countA);
+            assert.equal(log.decision_b, countB);
+            assert.equal(log.rule_version, 'phone-v3');
+            assert.deepEqual(milestoneCounts(database, milestone), { eligible_count: countA, gold_count: countB });
+            assert.deepEqual(database.prepare('SELECT * FROM prizes WHERE code = ?').get(goldCode), oldGold);
+            assert.equal(database.prepare('SELECT remaining_quantity FROM prizes WHERE code = ?').get(cashCode).remaining_quantity, oldCash.remaining_quantity - 1);
+            close(database);
+          });
+        }
+      }
+      for (const agencyCode of [`${blockedAgencyCode}0`, `X${blockedAgencyCode}`]) {
+        await check(`Mã gần giống không bị chặn: mốc ${milestone}, mã=${agencyCode}`, () => {
+          const database = fixture();
+          addAgency(database, agencyCode);
+          prepareMilestone(database, milestone);
+          createLottery(database, () => 0).spin(input(database, phoneFor(1), agencyCode));
+          assert.equal(latest(database).prize_code, milestone === 14 ? 'NHI' : 'NHAT');
+          assert.equal(latest(database).decision_reason, 'RANDOM_GOLD');
+          assert.deepEqual(milestoneCounts(database, milestone), { eligible_count: 1, gold_count: 1 });
+          close(database);
+        });
+      }
+      await check(`Đại lý bị chặn mốc ${milestone}: hết tiền rollback; hủy và đổi đại lý khi quay lại`, () => {
+        const database = fixture();
+        addAgency(database, blockedAgencyCode);
+        prepareMilestone(database, milestone, multiplier - 1);
+        const engine = createLottery(database, () => { throw new Error('Không được random'); });
+        const entry = input(database, phoneFor(1), blockedAgencyCode);
+        const cashCode = milestone === 14 ? 'MAYMAN2' : 'MAYMAN1';
+        const goldCode = milestone === 14 ? 'NHI' : 'NHAT';
+        const oldGold = database.prepare('SELECT * FROM prizes WHERE code = ?').get(goldCode);
+        database.prepare('UPDATE prizes SET remaining_quantity = 0, total_quantity = used_quantity WHERE code = ?').run(cashCode);
+        rollback(database, () => engine.spin(entry), 'OUT_OF_STOCK');
+        database.prepare('UPDATE prizes SET remaining_quantity = 2, total_quantity = used_quantity + 2 WHERE code = ?').run(cashCode);
+        engine.spin(entry);
+        const blockedLog = latest(database);
+        assert.equal(blockedLog.decision_reason, 'AGENCY_GOLD_BLOCKED');
+        assert.deepEqual(database.prepare('SELECT * FROM prizes WHERE code = ?').get(goldCode), oldGold);
+        engine.undo(blockedLog.id);
+        engine.spin(entry);
+        const blockedReplay = latest(database);
+        assert.notEqual(blockedReplay.id, blockedLog.id);
+        assert.equal(blockedReplay.decision_reason, 'AGENCY_GOLD_BLOCKED');
+        engine.undo(blockedReplay.id);
+        engine.spin({ ...entry, agencyCode: 'DL001' });
+        assert.equal(latest(database).prize_code, goldCode);
+        assert.equal(latest(database).decision_reason, 'GUARANTEED_GOLD');
+        assert.deepEqual(milestoneCounts(database, milestone), { eligible_count: multiplier, gold_count: 1 });
+        assert.equal(database.prepare('SELECT status FROM spin_logs WHERE id = ?').get(blockedLog.id).status, 'void');
+        close(database);
+      });
+      await check(`Vàng cũ tại đại lý bị chặn vẫn giới hạn một vàng/SĐT ở mốc ${milestone}`, () => {
+        const database = fixture();
+        seedMilestone(database, phoneFor(1), 1, 'NHI', blockedAgencyCode, 'legacy');
+        if (milestone === 25) seedMilestone(database, phoneFor(1), 14, 'MAYMAN2', blockedAgencyCode);
+        database.prepare('UPDATE phone_participants SET spin_count = ? WHERE phone = ?').run(milestone - 1, phoneFor(1));
+        createLottery(database, () => { throw new Error('SĐT đã có vàng không được random'); }).spin(input(database));
+        assert.equal(latest(database).decision_reason, 'GOLD_ALREADY_WON');
+        assert.equal(latest(database).prize_code, milestone === 14 ? 'MAYMAN2' : 'MAYMAN1');
+        close(database);
+      });
+    }
+    await check('Đại lý bị chặn giữ lịch 1–90, gồm 500k; hai mốc không đóng góp a/b', () => {
+      const database = fixture();
+      addAgency(database, blockedAgencyCode);
+      const engine = createLottery(database, () => { throw new Error('Không được random'); });
+      for (let spin = 1; spin <= 90; spin++) {
+        engine.spin(input(database, phoneFor(1), blockedAgencyCode));
+        const log = latest(database);
+        const position = ((spin - 1) % 30) + 1;
+        assert.equal(log.prize_code, position === 8 && spin > 8 ? 'MAYMAN1' : expected[position]);
+        if (spin === 14 || spin === 25) assert.equal(log.decision_reason, 'AGENCY_GOLD_BLOCKED');
+      }
+      assert.deepEqual(milestoneCounts(database, 14), { eligible_count: 0, gold_count: 0 });
+      assert.deepEqual(milestoneCounts(database, 25), { eligible_count: 0, gold_count: 0 });
+      assert.equal(database.prepare("SELECT COUNT(*) AS count FROM spin_logs WHERE prize_code = 'BA'").get().count, 1);
+      close(database);
+    });
+    for (const [agencyAt14, winsAt14, agencyAt25] of [
+      [blockedAgencyCode, false, 'DL001'],
+      ['DL001', false, blockedAgencyCode],
+      ['DL001', true, blockedAgencyCode],
+    ]) {
+      await check(`Đổi đại lý: mốc 14 tại ${agencyAt14}, mốc 25 tại ${agencyAt25}, vàng14=${winsAt14}`, () => {
+        const database = fixture();
+        addAgency(database, blockedAgencyCode);
+        const engine14 = createLottery(database, winsAt14 ? () => 0 : (minimum, maximum) => maximum - 1);
+        advance(database, engine14, phoneFor(1), 14, agencyAt14);
+        assert.equal(latest(database).prize_code, winsAt14 ? 'NHI' : 'MAYMAN2');
+        advance(database, engine14, phoneFor(1), 24, agencyAt25);
+        const engine25 = createLottery(database, () => {
+          assert.notEqual(agencyAt25, blockedAgencyCode);
+          return 0;
+        });
+        engine25.spin(input(database, phoneFor(1), agencyAt25));
+        assert.equal(latest(database).prize_code, agencyAt25 === blockedAgencyCode ? 'MAYMAN1' : 'NHAT');
+        assert.equal(latest(database).decision_reason, agencyAt25 === blockedAgencyCode ? 'AGENCY_GOLD_BLOCKED' : 'RANDOM_GOLD');
+        assert.deepEqual(milestoneCounts(database, 25), agencyAt25 === blockedAgencyCode
+          ? { eligible_count: 0, gold_count: 0 } : { eligible_count: 1, gold_count: 1 });
+        close(database);
+      });
+    }
+    await check('a/b lọc lịch sử theo đại lý đúng mốc; giữ legacy, mã thiếu/rỗng và lịch sử cũ', () => {
+      const database = fixture();
+      const records = [
+        [201, blockedAgencyCode, 'MAYMAN2', 'DL001', 'NHAT'],
+        [202, 'DL001', 'MAYMAN2', blockedAgencyCode, 'NHAT'],
+        [203, null, 'MAYMAN2', null, 'MAYMAN1'],
+        [204, ` ${blockedAgencyCode.toLowerCase()} `, 'NHI', 'DL001', 'MAYMAN1'],
+        [205, 'DL001', 'NHI', blockedAgencyCode, 'MAYMAN1'],
+        [206, '', 'MAYMAN2', '', 'MAYMAN1'],
+        [207, `${blockedAgencyCode}0`, 'MAYMAN2', `${blockedAgencyCode}0`, 'MAYMAN1'],
+        [208, blockedAgencyCode, 'MAYMAN2', blockedAgencyCode, 'MAYMAN1'],
+        [209, 'DL001', 'MAYMAN2', ` ${blockedAgencyCode.toLowerCase()} `, 'MAYMAN1'],
+      ];
+      for (const [number, agency14, prize14, agency25, prize25] of records) {
+        seedMilestone(database, phoneFor(number), 14, prize14, agency14, 'legacy');
+        seedMilestone(database, phoneFor(number), 25, prize25, agency25);
+      }
+      const before = snapshot(database);
+      assert.deepEqual(milestoneCounts(database, 14), { eligible_count: 6, gold_count: 1 });
+      assert.deepEqual(milestoneCounts(database, 25), { eligible_count: 4, gold_count: 1 });
+      assert.equal(snapshot(database), before);
+      createLottery(database).undo(latest(database, phoneFor(207)).id);
+      assert.deepEqual(milestoneCounts(database, 25), { eligible_count: 3, gold_count: 1 });
+      assert.deepEqual(milestoneCounts(database, 14), { eligible_count: 6, gold_count: 1 });
+      close(database);
+    });
+    await check('Danh sách chặn hỗ trợ thêm mã và danh sách rỗng; tham số SQL giữ mã có dấu nháy', () => {
+      const original = [...GOLD_BLOCKED_AGENCY_CODES];
+      const extraCode = "OTC.TEST'CODE";
+      const database = fixture();
+      try {
+        GOLD_BLOCKED_AGENCY_CODES.add(extraCode);
+        addAgency(database, extraCode);
+        prepareMilestone(database, 14);
+        createLottery(database, () => { throw new Error('Mã mới phải bị chặn'); }).spin(input(database, phoneFor(1), extraCode));
+        assert.equal(latest(database).decision_reason, 'AGENCY_GOLD_BLOCKED');
+        seedMilestone(database, phoneFor(2), 14, 'NHI', blockedAgencyCode);
+        assert.deepEqual(milestoneCounts(database, 14), { eligible_count: 0, gold_count: 0 });
+        GOLD_BLOCKED_AGENCY_CODES.clear();
+        assert.deepEqual(milestoneCounts(database, 14), { eligible_count: 2, gold_count: 1 });
+        assert.deepEqual(milestoneCounts(database, 25), { eligible_count: 0, gold_count: 0 });
+      } finally {
+        GOLD_BLOCKED_AGENCY_CODES.clear();
+        original.forEach(code => GOLD_BLOCKED_AGENCY_CODES.add(code));
+        close(database);
+      }
+    });
     await check('Điều kiện SĐT ưu tiên công thức, không random khi không đủ điều kiện', () => {
       for (const [milestone, earlierSpin, earlierPrize, reason] of [
         [14, 1, 'NHAT', 'GOLD_ALREADY_WON'],
@@ -711,6 +892,39 @@ async function main() {
       });
     }
 
+    for (const milestone of [14, 25]) {
+      await check(`Đồng thời mốc ${milestone}: đại lý chặn không tác động a/b, chỉ phát một vàng còn lại`, async () => {
+        const source = fixture();
+        addAgency(source, blockedAgencyCode);
+        const goldCode = milestone === 14 ? 'NHI' : 'NHAT';
+        const cashCode = milestone === 14 ? 'MAYMAN2' : 'MAYMAN1';
+        source.prepare('UPDATE prizes SET remaining_quantity = 1, total_quantity = used_quantity + 1 WHERE code = ?').run(goldCode);
+        const operations = [1, 2, 3, 4].map(number => {
+          const agencyCode = number <= 2 ? blockedAgencyCode : 'DL001';
+          source.prepare('INSERT INTO phone_participants VALUES (?, ?)').run(phoneFor(number), milestone - 1);
+          if (milestone === 25) seedMilestone(source, phoneFor(number), 14, 'MAYMAN2', agencyCode);
+          return { input: input(source, phoneFor(number), agencyCode) };
+        });
+        const file = path.join(directory, `concurrent-blocked-gold-${milestone}.db`);
+        await source.backup(file);
+        close(source);
+        const results = await parallel(file, operations);
+        assert(results.every(result => result.result?.success));
+        const database = new Database(file);
+        openDatabases.add(database);
+        for (const number of [1, 2]) {
+          assert.equal(latest(database, phoneFor(number)).prize_code, cashCode);
+          assert.equal(latest(database, phoneFor(number)).decision_reason, 'AGENCY_GOLD_BLOCKED');
+        }
+        const normalLogs = [3, 4].map(number => latest(database, phoneFor(number)));
+        assert.deepEqual(normalLogs.map(log => log.prize_code).sort(), [goldCode, cashCode].sort());
+        assert.deepEqual(normalLogs.map(log => log.decision_a).sort(), [0, 1]);
+        assert.deepEqual(milestoneCounts(database, milestone), { eligible_count: 2, gold_count: 1 });
+        assert.equal(database.prepare('SELECT remaining_quantity FROM prizes WHERE code = ?').get(goldCode).remaining_quantity, 0);
+        close(database);
+      });
+    }
+
     function sheetHarness() {
       const rows = [];
       const sheet = {
@@ -848,6 +1062,7 @@ async function main() {
         assert(rule.includes(`a < b × ${multiplier} trả ${cash}`));
         assert(rule.includes(`(a − b × ${multiplier} + 1)/${multiplier} × 100%`));
         assert(rule.includes('giới hạn 0–100%'));
+        assert(rule.includes(blockedAgencyCode) && rule.includes('không tính vào a/b'));
       }
       const entry = input(db);
       const firstResponse = (await request('/api/spin', 'POST', entry)).data;
@@ -897,6 +1112,18 @@ async function main() {
       assert.equal((await request('/api/admin/spins')).status, 401);
       for (const resource of ['/data.db', '/server.js', '/lottery.js', '/docs/google-sheets-sync.gs']) assert.equal((await dispatch(resource)).status, 404);
       for (const resource of ['/', '/main.js', '/style.css', '/admin/', '/admin/admin.js']) assert.equal((await dispatch(resource)).status, 200);
+      for (const [number, agency14, agency25, prize25] of [
+        [301, blockedAgencyCode, 'DL001', 'NHAT'],
+        [302, 'DL001', blockedAgencyCode, 'NHAT'],
+      ]) {
+        seedMilestone(db, phoneFor(number), 14, 'MAYMAN2', agency14);
+        seedMilestone(db, phoneFor(number), 25, prize25, agency25);
+      }
+      const stats = (await request('/api/admin/stats', 'GET', undefined, true)).data.stats;
+      assert.deepEqual(stats.milestones, [
+        { milestone: 14, eligible_count: 1, gold_count: 0 },
+        { milestone: 25, eligible_count: 1, gold_count: 1 },
+      ]);
     });
     await check('Tài liệu và mẫu Apps Script khớp giao diện/code', () => {
       const source = fs.readFileSync(path.join(__dirname, '..', 'docs', 'google-sheets-sync.gs'), 'utf8').trim();
@@ -906,6 +1133,7 @@ async function main() {
       const rules = fs.readFileSync(path.join(__dirname, '..', 'docs', 'luat-quay-thuong.md'), 'utf8');
       assert(rules.includes('a < b * 4') && rules.includes('a < b * 3') && rules.includes('phone-v3'));
       assert(rules.includes('GUARANTEED_GOLD') && rules.includes('(a - b * 4 + 1) / 4') && rules.includes('(a - b * 3 + 1) / 3'));
+      assert(rules.includes('AGENCY_GOLD_BLOCKED') && rules.includes(blockedAgencyCode));
       const documented = new Set();
       for (const line of rules.split('\n')) {
         const match = line.match(/^\| ([0-9, ]+) \| .* \| `([A-Z0-9]+)`/);

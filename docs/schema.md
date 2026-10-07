@@ -26,7 +26,7 @@ NN = NOT NULL; PK = PRIMARY KEY; UQ = UNIQUE; AI = AUTOINCREMENT; “—” = kh
 
 ### 2.1. agencies
 
-Đại lý chỉ là thông tin lựa chọn, không xác định quyền thưởng. Một SĐT được chọn đại lý khác ở lượt sau.
+Một SĐT được chọn đại lý khác ở lượt sau. Mã `code` trong danh sách chặn vàng của backend khiến lượt 14/25 tại đại lý đó nhận tiền; không thêm trường cấu hình vào bảng. Xem [danh sách và luật quay](luat-quay-thuong.md).
 
 | Trường | Kiểu SQL | Ràng buộc / mặc định | Mô tả |
 | --- | --- | --- | --- |
@@ -191,7 +191,7 @@ Trigger không thay thế transaction nghiệp vụ. Quay/hủy phải cùng ki�
 | nextSpinNumber | Số lượt vừa hủy tại commit; không giữ chỗ cho request tiếp theo |
 | rule, rule_locked, available_quantity | Mô tả lịch, khóa mã quà, remaining_quantity - reserved_quantity |
 | participantCount | Số SĐT có spin_count > 0 |
-| milestones[].eligible_count / gold_count | a/b hiện tại toàn chương trình, khác ảnh chụp a/b của từng lượt |
+| milestones[].eligible_count / gold_count | a/b hiện tại toàn chương trình, loại kết quả tại đại lý bị chặn ở mốc tương ứng; khác ảnh chụp a/b của từng lượt |
 
 Sheets dùng giao thức spin-record-v3, upsert theo ID/record_version. Cột 6 là ngân hàng; cột 26/27 là số/tên chủ tài khoản. Cột 13 tương thích kỳ cũ để trống khi cập nhật, cột 14 là lượt tuyệt đối. SQLite chỉ đánh dấu đã đồng bộ khi phiên bản hiện tại khớp xác nhận; phản hồi cũ không ghi đè trạng thái mới.
 
