@@ -117,7 +117,7 @@ function createLottery(db, drawInteger = randomInt) {
       decision.reason = 'GOLD_OUT_OF_STOCK_CASH';
       return decision;
     }
-    const multiplier = spinNumber === 14 ? 4 : 3;
+    const multiplier = 2;
     const winningSlots = Math.max(0, Math.min(multiplier, decision.countA - decision.countB * multiplier + 1));
     if (winningSlots === 0) {
       decision.reason = 'FORMULA_FALSE_CASH';

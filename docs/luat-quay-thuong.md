@@ -1,6 +1,6 @@
 # Luật quay thưởng DHA — theo SĐT
 
-Phiên bản luật: **phone-v3**. Cập nhật công thức: **2026-10-07**.
+Phiên bản luật: **phone-v3**. Cập nhật công thức: **2026-10-24**.
 
 Tài liệu mô tả code hiện tại, không xác nhận database vận hành đã chuyển đổi. Không có kỳ thưởng; SĐT chuẩn hóa là khóa người tham gia duy nhất. Phiên bản luật chỉ phục vụ kiểm toán, không chia/reset bộ đếm.
 
@@ -15,15 +15,15 @@ Nguồn: [bộ máy thưởng](../lottery.js), [schema/migration](../lotterySche
 | Đại lý bị chặn vàng? | Mã trong GOLD_BLOCKED_AGENCY_CODES nhận 50k ở lượt 14, 100k ở lượt 25; không random và không tính kết quả tại đại lý đó vào a/b của mốc tương ứng. |
 | Lịch sử cũ có tính tiếp? | Có. Đánh số theo thời gian, rồi ID nếu cùng thời điểm, cho từng SĐT; giữ nguyên quà cũ. |
 | Có hủy lượt cũ được không? | Có, nếu là lượt có hiệu lực cuối cùng của SĐT; hoàn đúng quà và mã cũ. |
-| Công thức vàng? | Lượt 14: `a < b * 4` trả 50k, còn lại xác suất `(a - b * 4 + 1) / 4`. Lượt 25: `a < b * 3` trả 100k, còn lại xác suất `(a - b * 3 + 1) / 3`. Giới hạn 0–100%, không trúng vàng trả tiền. |
-| Có chia nhóm/giữ chỗ vàng? | Không. Không cam kết đúng một vàng trên 4/3 người. |
+| Công thức vàng? | Cả hai mốc dùng hệ số 2: `a < b * 2` trả tiền, còn lại xác suất `(a - b * 2 + 1) / 2`. Giới hạn 0–100%; không trúng vàng trả 50k ở lượt 14, 100k ở lượt 25. |
+| Có chia nhóm/giữ chỗ vàng? | Không. Không chia nhóm hai người hoặc giữ chỗ vàng. |
 | Sau lượt 30? | Lặp lịch 30 vị trí, số lượt tuyệt đối vẫn tăng. |
 | Vàng/500k có lặp? | Không; chỉ xét vàng ở lượt tuyệt đối 14/25, 500k ở lượt 8. Giới hạn tính cả quà cũ chưa hủy. |
 | Hết vàng? | Mốc 14 trả 50k; mốc 25 trả 100k. Hết quà cần phát thì dừng, không tiêu mã. |
 | Quay lại có kết quả cũ? | Không; ID mới, xét dữ liệu/kho hiện tại, random mới nếu đủ điều kiện. |
 | Kiểm tra doanh số/OTP? | Chưa. Mã dự thưởng hợp lệ vẫn bắt buộc; “mốc nhập” chưa được kiểm tra bằng dữ liệu doanh số. |
 
-**Hệ quả công thức:** khi `a = b = 0`, xác suất vàng đầu tiên là 1/4 ở lượt 14 hoặc 1/3 ở lượt 25 nếu đủ điều kiện và còn kho. Không cần seed người trúng trong vận hành. Khi số người chưa trúng tăng, xác suất tăng từng nấc đến 100%. Lịch sử legacy/phone-v3 vẫn đóng góp a/b nếu đúng mốc và đúng quà; phiên bản luật không chia bộ đếm.
+**Hệ quả công thức:** khi `a = b = 0`, xác suất vàng đầu tiên là 50% ở cả hai mốc nếu đủ điều kiện và còn kho. Không cần seed người trúng trong vận hành. Xác suất theo a/b chỉ có ba mức 0%, 50%, 100%; không phải mỗi lượt đều có 50%. Lịch sử legacy/phone-v3 vẫn đóng góp a/b nếu đúng mốc và đúng quà; phiên bản luật không chia bộ đếm. Giữ a/b cũ có thể dẫn đến nhiều lượt chắc chắn trúng vàng liên tiếp khi áp dụng hệ số 2. Vàng mốc 14 dễ trúng hơn làm giảm số SĐT đủ điều kiện xét vàng mốc 25, nên không thể suy ra tổng lượng vàng phát chỉ từ tỷ lệ đổi hệ số.
 
 ## 2. Định nghĩa và lịch quà
 
@@ -71,24 +71,24 @@ const GOLD_BLOCKED_AGENCY_CODES = new Set([
 - Chặn vàng được kiểm tra sau khi lưu a/b và trước các nhánh xét vàng khác. Hết tiền tương ứng vẫn rollback toàn bộ, không đổi sang vàng.
 - Lọc cả a và b trên toàn bộ lịch sử active, gồm legacy/phone-v3, theo mã đại lý đã lưu tại mốc đang đếm. Mã thiếu/rỗng vẫn được tính như trước. Thống kê quản trị dùng cùng phép đếm với quay thưởng.
 - Nếu lượt 14 tại đại lý bị chặn nhận 50k, lượt 25 chọn đại lý khác vẫn được xét vàng nếu đủ điều kiện. Vàng cũ tại đại lý bị chặn vẫn tính vào giới hạn một vàng/SĐT; không sửa kết quả cũ.
-- Thêm mã vào Set rồi deploy/restart ứng dụng; không cần đổi schema hoặc migration. Thêm/bỏ mã áp dụng cho cả lịch sử khi đếm lại a/b, có thể thay đổi xác suất tương lai của đại lý khác. Không cam kết mỗi ba lượt tổng cộng có một vàng khi có lượt bị chặn.
+- Thêm mã vào Set rồi deploy/restart ứng dụng; không cần đổi schema hoặc migration. Thêm/bỏ mã áp dụng cho cả lịch sử khi đếm lại a/b, có thể thay đổi xác suất tương lai của đại lý khác. Không cam kết mỗi hai lượt tổng cộng có một vàng khi có lượt bị chặn.
 
 ### Lượt tuyệt đối 14
 
 - `a`: số SĐT đã có kết quả lượt 14 tại đại lý không bị chặn; `b`: số SĐT trong tập đó nhận NHI tại lượt 14.
 - Lưu a/b để đối soát. Nếu SĐT đã có vàng tại bất kỳ lượt nào hoặc hết NHI: trả 50k.
-- Nếu `a < b * 4`: MAYMAN2, không random. Còn lại xác suất NHI là `min(1, (a - b * 4 + 1) / 4)`; không trúng trả MAYMAN2.
+- Nếu `a < b * 2`: MAYMAN2, không random. Còn lại xác suất NHI là `min(1, (a - b * 2 + 1) / 2)`; không trúng trả MAYMAN2.
 
 ### Lượt tuyệt đối 25
 
 - `a`: số SĐT đã có lượt 25 tại đại lý không bị chặn và có lượt 14 active nhận MAYMAN2; `b`: số SĐT trong tập đó nhận NHAT tại lượt 25. Đại lý ở lượt 14 có thể bị chặn; bộ lọc đại lý của mốc 25 chỉ xét kết quả lượt 25.
 - Lưu a/b kể cả khi SĐT đang quay không đủ điều kiện. Nếu đã có vàng tại bất kỳ lượt nào: trả 100k.
 - Thiếu lượt 14 hoặc lượt 14 không nhận MAYMAN2: trả 100k, không đủ điều kiện xét vàng. Hết NHAT: trả 100k.
-- Nếu `a < b * 3`: MAYMAN1, không random. Còn lại xác suất NHAT là `min(1, (a - b * 3 + 1) / 3)`; không trúng trả MAYMAN1. Dùng chính xác 1/3 hoặc 2/3, không làm tròn thành 33,33%/66,67%.
+- Nếu `a < b * 2`: MAYMAN1, không random. Còn lại xác suất NHAT là `min(1, (a - b * 2 + 1) / 2)`; không trúng trả MAYMAN1.
 
 ### Random và giới hạn xác suất
 
-Với `k = 4` ở lượt 14 hoặc `k = 3` ở lượt 25:
+Với `k = 2` ở cả lượt 14 và lượt 25:
 
 ```js
 const winningSlots = Math.max(0, Math.min(k, a - b * k + 1));
@@ -98,7 +98,15 @@ const winsGold = winningSlots === k
 
 Xác suất bằng `winningSlots / k`: 0% trả tiền, 100% chắc chắn vàng, cả hai không gọi random. Các kiểm tra đại lý bị chặn, đã có vàng, điều kiện lượt 14 và hết vàng được thực hiện trước công thức.
 
-Ví dụ b = 1: mốc 14 với a < 4 chỉ tiền, a = 4/5/6/7 lần lượt có xác suất 25%/50%/75%/100%; mốc 25 với a < 3 chỉ tiền, a = 3/4/5 lần lượt có xác suất 1/3, 2/3, 100%. Vượt 100% được chặn ở 100%, không báo lỗi.
+| Trạng thái a/b trước lượt quay | Xác suất vàng ở cả hai mốc |
+| --- | --- |
+| `a < 2 * b` | 0%, trả tiền, không random |
+| `a = 2 * b` | 50%, random số nguyên trong `[0, 2)`: 0 trúng vàng, 1 trả tiền |
+| `a >= 2 * b + 1` | 100%, chắc chắn vàng, không random |
+
+Ví dụ b = 1: a < 2 chỉ tiền, a = 2 có xác suất 50%, a >= 3 chắc chắn vàng nếu đủ điều kiện và còn kho. Vượt 100% được chặn ở 100%, không báo lỗi.
+
+Ví dụ nối tiếp lịch sử a = 10, b = 2 tại một mốc: sáu lượt đủ điều kiện tiếp theo đều chắc chắn vàng nếu còn kho. Sau mỗi lượt trúng, cả a và b tăng 1; sau sáu lượt, a = 16, b = 8 và lượt tiếp theo có xác suất 50%. Các lượt bị chặn hoặc không đủ điều kiện vẫn tuân theo quy tắc đếm riêng đã nêu, không được coi là một lượt trúng trong ví dụ này.
 
 | decision_reason | Ý nghĩa |
 | --- | --- |
@@ -149,7 +157,7 @@ Hủy thay đổi a/b tương lai, không sửa kết quả hoặc a/b đã lưu
 
 ### Cập nhật công thức xác suất vàng
 
-Database đã sẵn sàng giữ `rule_version = phone-v3` và marker `phone-only-v3`. Chỉ cập nhật ứng dụng và khởi động lại; không cần chạy migration database cho thay đổi công thức này. Giữ nguyên lịch sử, bộ đếm, kho và mã. Công thức mới áp dụng cho lượt phát sinh tiếp theo, kể cả quay lại sau khi hủy. Ghi nhận thời điểm triển khai để phân biệt giai đoạn áp dụng công thức cũ/mới khi đối soát decision_a/b, decision_reason và biến động kho.
+Database đã sẵn sàng giữ `rule_version = phone-v3` và marker `phone-only-v3`. Chỉ cập nhật ứng dụng và khởi động lại; không cần chạy migration database cho thay đổi công thức này. Giữ nguyên lịch sử, bộ đếm a/b, kho và mã; không bắt đầu phân kỳ mới. Công thức hệ số 2 thay cho hệ số 4 ở lượt 14 và 3 ở lượt 25, áp dụng cho lượt phát sinh tiếp theo, kể cả quay lại sau khi hủy. Ghi nhận thời điểm triển khai và commit để phân biệt giai đoạn áp dụng công thức cũ/mới khi đối soát decision_a/b, decision_reason và biến động kho. Có thể phát vàng chắc chắn liên tiếp theo lịch sử a/b cũ như ví dụ ở phần thuật toán.
 
 ### Chuyển đổi database legacy chưa sẵn sàng
 
