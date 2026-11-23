@@ -1,6 +1,6 @@
 # Luật quay thưởng DHA — theo SĐT
 
-Phiên bản luật: **phone-v3**. Cập nhật công thức: **2026-11-09**.
+Phiên bản luật: **phone-v3**. Cập nhật công thức: **2026-11-09**. Cập nhật hết kho: **2026-11-24**.
 
 Tài liệu mô tả code hiện tại, không xác nhận database vận hành đã chuyển đổi. Không có kỳ thưởng; SĐT chuẩn hóa là khóa người tham gia duy nhất. Phiên bản luật chỉ phục vụ kiểm toán, không chia/reset bộ đếm.
 
@@ -19,7 +19,7 @@ Nguồn: [bộ máy thưởng](../lottery.js), [schema/migration](../lotterySche
 | Có chia nhóm/giữ chỗ vàng? | Không. Không chia nhóm hai người hoặc giữ chỗ vàng. |
 | Sau lượt 30? | Lặp lịch 30 vị trí, số lượt tuyệt đối vẫn tăng. |
 | Vàng/500k có lặp? | Không; chỉ xét vàng ở lượt tuyệt đối 14/25, 500k ở lượt 8. Giới hạn tính cả quà cũ chưa hủy. |
-| Hết vàng? | Mốc 14 trả 50k; mốc 25 trả 100k. Hết quà cần phát thì dừng, không tiêu mã. |
+| Hết vàng? | Cả hai mốc trả 50k nếu đủ điều kiện xét vàng nhưng vàng hết kho. Mọi giải được chọn hết kho đều chuyển về 50k; nếu 50k cũng hết thì dừng, không tiêu mã hoặc tăng lượt. |
 | Quay lại có kết quả cũ? | Không; ID mới, xét dữ liệu/kho hiện tại, random mới nếu đủ điều kiện. |
 | Kiểm tra doanh số/OTP? | Chưa. Mã dự thưởng hợp lệ vẫn bắt buộc; “mốc nhập” chưa được kiểm tra bằng dữ liệu doanh số. |
 
@@ -68,7 +68,7 @@ const GOLD_BLOCKED_AGENCY_CODES = new Set([
 
 - Backend so khớp toàn bộ mã `agencies.code` đã xác thực, bỏ khoảng trắng hai đầu và không phân biệt hoa/thường. Không so theo tên hoặc mã gần giống.
 - Chỉ xét đại lý được chọn ở lượt hiện tại. Tại lượt 14/25, đại lý bị chặn luôn nhận MAYMAN2/MAYMAN1, không random kể cả xác suất 100%; các lượt khác giữ lịch, gồm giải BA.
-- Chặn vàng được kiểm tra sau khi lưu a/b và trước các nhánh xét vàng khác. Hết tiền tương ứng vẫn rollback toàn bộ, không đổi sang vàng.
+- Chặn vàng được kiểm tra sau khi lưu a/b và trước các nhánh xét vàng khác. Hết tiền tương ứng chuyển về 50k; nếu 50k cũng hết thì rollback toàn bộ, không đổi sang vàng.
 - Lọc cả a và b trên toàn bộ lịch sử active, gồm legacy/phone-v3, theo mã đại lý đã lưu tại mốc đang đếm. Mã thiếu/rỗng vẫn được tính như trước. Thống kê quản trị dùng cùng phép đếm với quay thưởng.
 - Nếu lượt 14 tại đại lý bị chặn nhận 50k, lượt 25 chọn đại lý khác vẫn được xét vàng nếu đủ điều kiện. Vàng cũ tại đại lý bị chặn vẫn tính vào giới hạn một vàng/SĐT; không sửa kết quả cũ.
 - Thêm mã vào Set rồi deploy/restart ứng dụng; không cần đổi schema hoặc migration. Thêm/bỏ mã áp dụng cho cả lịch sử khi đếm lại a/b, có thể thay đổi xác suất tương lai của đại lý khác. Không cam kết mỗi hai lượt tổng cộng có một vàng khi có lượt bị chặn.
@@ -83,7 +83,7 @@ const GOLD_BLOCKED_AGENCY_CODES = new Set([
 
 - `a`: số SĐT đã có lượt 25 tại đại lý không bị chặn và có lượt 14 active nhận MAYMAN2; `b`: số SĐT trong tập đó nhận NHAT tại lượt 25. Đại lý ở lượt 14 có thể bị chặn; bộ lọc đại lý của mốc 25 chỉ xét kết quả lượt 25.
 - Lưu a/b kể cả khi SĐT đang quay không đủ điều kiện. Nếu đã có vàng tại bất kỳ lượt nào: trả 100k.
-- Thiếu lượt 14 hoặc lượt 14 không nhận MAYMAN2: trả 100k, không đủ điều kiện xét vàng. Hết NHAT: trả 100k.
+- Thiếu lượt 14 hoặc lượt 14 không nhận MAYMAN2: trả 100k, không đủ điều kiện xét vàng. Hết NHAT khi đủ điều kiện xét vàng: trả 50k, không random.
 - Nếu `a < b * 2`: MAYMAN1, không random. Còn lại xác suất NHAT là `min(1, (a - b * 2 + 1) / 2)`; không trúng trả MAYMAN1.
 
 ### Random và giới hạn xác suất
@@ -116,17 +116,22 @@ Ví dụ nối tiếp lịch sử a = 10, b = 2 tại một mốc: sáu lượt 
 | AGENCY_GOLD_BLOCKED | Đại lý được chọn thuộc danh sách chặn vàng; nhận tiền theo mốc, không random |
 | GOLD_ALREADY_WON | Đã có vàng active, nhận tiền tại mốc |
 | MILESTONE_14_INELIGIBLE | Lượt 25 không có lượt 14 nhận MAYMAN2 |
-| GOLD_OUT_OF_STOCK_CASH | Hết vàng, chuyển tiền |
+| GOLD_OUT_OF_STOCK_CASH | Hết vàng, chuyển 50k ở cả hai mốc |
+| OUT_OF_STOCK_50K | Giải được chọn khác 50k hết kho, chuyển sang 50k |
 | FORMULA_FALSE_CASH | Theo công thức mới: xác suất 0%, tức a < b × k, nhận tiền. Trước khi cập nhật: điều kiện nhỏ hơn không thỏa; đối chiếu thời điểm triển khai để phân biệt |
 | RANDOM_GOLD / RANDOM_CASH | Kết quả random khi đủ điều kiện |
 | GUARANTEED_GOLD | Xác suất đạt hoặc vượt 100%, nhận vàng không random |
 | LEGACY_IMPORTED | Quà cũ giữ nguyên, nhập vào chuỗi lượt theo SĐT |
 
+Các giải trong lịch và các nhánh trả tiền nêu trên đều áp dụng fallback hết kho: giải được chọn hết chuyển về 50k, nếu 50k cũng hết thì dừng.
+
 ## 4. Kho, giao dịch và hủy lượt
 
 - Mỗi lượt phải có đủ sáu mã quà. Số lượng nguyên an toàn; tổng = còn lại + đã phát, không âm. Thiếu cấu hình khác hết kho.
 - Không giữ chỗ vàng. `reserved_quantity` là trường tương thích, phải bằng 0 khi quay; còn giữ chỗ phải đối soát, không tự giải phóng.
-- Hết vàng chuyển tiền. Quà được chọn hết thì `OUT_OF_STOCK`, rollback; không tự đổi quà hoặc random lại vì thiếu tiền.
+- Hết vàng ở cả hai mốc chuyển 50k trước random. Giải được chọn khác 50k hết kho cũng chuyển sang 50k, không random lại. Chỉ trừ kho và ghi lịch sử giải thực nhận; hủy lượt hoàn đúng giải đã phát.
+- Nếu 50k cũng hết thì `OUT_OF_STOCK` (HTTP 409), rollback toàn bộ, giữ mã chưa dùng và số lượt không đổi. Thiếu cấu hình hoặc kho sai vẫn báo lỗi, không fallback.
+- Giao diện hiển thị tiêu đề “Tạm thời chưa thể quay thưởng” và nội dung: “Quà tặng hiện đã hết. Mã dự thưởng của bạn chưa được sử dụng và lượt quay chưa bị trừ. Vui lòng liên hệ đại lý hoặc ban tổ chức để được hỗ trợ và thử lại sau.” Giữ thông tin đã nhập, không hiển thị mã lỗi kỹ thuật.
 - Kiểm tra mã, tính lượt, đọc a/b, chọn quà, trừ kho, ghi lịch sử, tăng lượt, tiêu mã trong một transaction immediate.
 - Request trùng mã không phát hai lần. Nếu commit nhưng mất response, gửi lại báo mã đã dùng; tra lịch sử để xác nhận.
 - Webhook ngoài transaction. Lỗi ghi/tiêu mã/hoàn dữ liệu phải ném ngoại lệ và rollback toàn bộ.
@@ -183,7 +188,7 @@ Không restore backup sau khi có lượt mới nếu chưa đối soát. Mọi 
 | INVALID_PHONE, MISSING_FIELDS, INVALID_AGENCY | Sửa đầu vào; đại lý phải tồn tại |
 | INVALID_CODE, ALREADY_USED | Kiểm tra mã/lịch sử |
 | PRIZE_NOT_CONFIGURED, INVALID_STOCK | Đối soát cấu hình/kho |
-| OUT_OF_STOCK | Mã/lượt không đổi; bổ sung đúng quà |
+| OUT_OF_STOCK | 50k cũng hết; mã/lượt không đổi, bổ sung kho 50k để tiếp tục |
 | NOT_LATEST_SPIN, SPIN_ALREADY_VOID, SPIN_NOT_FOUND | Chỉ hủy ID active cuối của SĐT |
 | CODE_STATE_CONFLICT, SPIN_STATE_CONFLICT | Mã/bộ đếm không khớp; rollback, đối soát |
 | SPIN_LOCKED, INVALID_VOID_TRANSITION, CODE_LOCKED, PRIZE_LOCKED | Chặn sửa/xóa không hợp lệ |

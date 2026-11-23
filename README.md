@@ -11,7 +11,7 @@ Luật hiện hành: [Luật quay thưởng theo SĐT — phone-v3](docs/luat-qu
 ## 1. Chức năng
 
 - Chọn tỉnh/thành, đại lý, nhập thông tin người tham gia và mã dự thưởng để quay.
-- Kiểm tra mã tồn tại, chưa sử dụng và kho quà còn hàng. Backend lặp lịch 30 vị trí theo SĐT, không gộp đại lý; hết vàng tự trả tiền tại hai mốc.
+- Kiểm tra mã tồn tại, chưa sử dụng và kho quà còn hàng. Backend lặp lịch 30 vị trí theo SĐT, không gộp đại lý; hết vàng trả 50k tại cả hai mốc. Mọi giải được chọn hết kho chuyển về 50k; nếu 50k cũng hết thì dừng và giữ mã/lượt quay. Giao diện thông báo rõ bằng tiếng Việt và giữ thông tin đã nhập.
 - Mã đại lý trong `GOLD_BLOCKED_AGENCY_CODES` tại `lottery.js` (hiện có `OTC.DL00020259`) nhận 50k/100k ở lượt 14/25, không random vàng và không đóng góp a/b của mốc tương ứng, gồm lịch sử active cũ. Chặn theo đại lý được chọn từng lượt; thêm mã vào danh sách rồi deploy/restart, không cần migration. Xem [chi tiết luật và tác động bộ đếm](docs/luat-quay-thuong.md).
 - Lưu lịch sử, trừ tồn kho và đánh dấu mã đã dùng trong cùng một transaction SQLite.
 - Tra cứu lịch sử quay theo số điện thoại.

@@ -369,7 +369,8 @@ submitForm.addEventListener("submit", async function (event) {
     const result = await res.json();
 
     if (!result.success) {
-      showAlert("Không Thể Quay Thưởng", result.message || "Đã có lỗi xảy ra.", "❌");
+      const title = result.error === 'OUT_OF_STOCK' ? 'Tạm thời chưa thể quay thưởng' : 'Không Thể Quay Thưởng';
+      showAlert(title, result.message || "Đã có lỗi xảy ra.", "❌");
       return;
     }
 

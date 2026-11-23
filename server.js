@@ -371,13 +371,13 @@ app.get('/api/admin/prizes', verifyAdmin, (req, res) => {
         ? `; đại lý ${[...GOLD_BLOCKED_AGENCY_CODES].join(', ')} không nhận vàng, không tính vào a/b, nhận tiền theo mốc`
         : '';
       const rule = p.code === 'NHI' ? 'Lượt tuyệt đối 14, chưa có vàng: a < b × 2 trả 50k; còn lại xác suất (a − b × 2 + 1)/2 × 100% trúng vàng, giới hạn 0–100%; không trúng/hết vàng/đã có vàng trả 50k' + blockedGoldRule
-        : p.code === 'NHAT' ? 'Lượt tuyệt đối 25, lượt 14 nhận 50k và chưa có vàng: a < b × 2 trả 100k; còn lại xác suất (a − b × 2 + 1)/2 × 100% trúng vàng, giới hạn 0–100%; không trúng/hết vàng/đã có vàng trả 100k' + blockedGoldRule
+        : p.code === 'NHAT' ? 'Lượt tuyệt đối 25, lượt 14 nhận 50k và chưa có vàng: a < b × 2 trả 100k; còn lại xác suất (a − b × 2 + 1)/2 × 100% trúng vàng, giới hạn 0–100%; không trúng/đã có vàng trả 100k; hết vàng trả 50k nếu đủ điều kiện xét vàng' + blockedGoldRule
         : p.code === 'BA' ? 'Chỉ lượt tuyệt đối 8 nếu chưa có 500k; đã nhận hoặc lượt 38, 68… trả 100k'
         : fixedSpins.length ? `Vị trí trong vòng: ${fixedSpins.join(', ')}${p.code === 'MAYMAN1' ? '; thêm lượt 38, 68…' : ''}`
         : 'Không thuộc lịch quà';
       return {
         ...p,
-        rule,
+        rule: rule + '; giải được chọn hết kho chuyển về 50k; nếu 50k cũng hết thì dừng, giữ mã và lượt quay',
         rule_locked: PRIZE_CODES.includes(p.code),
         available_quantity: p.remaining_quantity - p.reserved_quantity
       };

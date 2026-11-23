@@ -114,6 +114,7 @@ function createLottery(db, drawInteger = randomInt) {
     }
     const goldCode = spinNumber === 14 ? 'NHI' : 'NHAT';
     if (prizes.get(goldCode).remaining_quantity === 0) {
+      decision.prizeCode = 'MAYMAN2';
       decision.reason = 'GOLD_OUT_OF_STOCK_CASH';
       return decision;
     }
@@ -164,10 +165,14 @@ function createLottery(db, drawInteger = randomInt) {
     const prizes = validatePrizeConfiguration(db);
     assertNoReservations(db);
     const decision = decidePrize(phone, spinNumber, prizes, agency.code);
+    if (decision.prizeCode !== 'MAYMAN2' && prizes.get(decision.prizeCode).remaining_quantity === 0) {
+      decision.prizeCode = 'MAYMAN2';
+      decision.reason = 'OUT_OF_STOCK_50K';
+    }
     const prize = prizes.get(decision.prizeCode);
     const stockChange = db.prepare(`UPDATE prizes SET remaining_quantity = remaining_quantity - 1,
       used_quantity = used_quantity + 1 WHERE id = ? AND remaining_quantity > 0 AND reserved_quantity = 0`).run(prize.id);
-    if (stockChange.changes !== 1) throw new LotteryError('OUT_OF_STOCK', 'Quà của lượt này đã hết. Mã chưa sử dụng.', 409);
+    if (stockChange.changes !== 1) throw new LotteryError('OUT_OF_STOCK', 'Quà tặng hiện đã hết. Mã dự thưởng của bạn chưa được sử dụng và lượt quay chưa bị trừ. Vui lòng liên hệ đại lý hoặc ban tổ chức để được hỗ trợ và thử lại sau.', 409);
     db.prepare(`INSERT INTO phone_participants (phone, spin_count) VALUES (?, ?)
       ON CONFLICT(phone) DO UPDATE SET spin_count = excluded.spin_count`).run(phone, spinNumber);
     const inserted = db.prepare(`INSERT INTO spin_logs

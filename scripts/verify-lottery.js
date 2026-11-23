@@ -299,6 +299,74 @@ async function main() {
         close(database);
       });
     }
+    for (const [spin, code] of [[3, 'MAYMAN1'], [6, 'CAOLON'], [8, 'BA'], [14, 'NHI'], [25, 'NHAT']]) {
+      await check(`Hết ${code}: chỉ trừ 50k, hủy hoàn 50k và replay theo kho hiện tại`, () => {
+        const database = fixture();
+        const isGold = code === 'NHI' || code === 'NHAT';
+        if (isGold) prepareMilestone(database, spin);
+        else database.prepare('INSERT INTO phone_participants VALUES (?, ?)').run(phoneFor(1), spin - 1);
+        database.prepare('UPDATE prizes SET remaining_quantity = 0, total_quantity = used_quantity WHERE code = ?').run(code);
+        const oldStock = database.prepare('SELECT * FROM prizes WHERE code = ?').get(code);
+        const cash50 = database.prepare("SELECT * FROM prizes WHERE code = 'MAYMAN2'").get();
+        let draws = 0;
+        const engine = createLottery(database, () => { assert(isGold); draws++; return 0; });
+        const entry = input(database);
+        const result = engine.spin(entry);
+        const log = latest(database);
+        assert.equal(result.prize.id, cash50.id);
+        assert.equal(result.prize.name, cash50.name);
+        assert.equal(log.prize_code, 'MAYMAN2');
+        assert.equal(log.decision_reason, isGold ? 'GOLD_OUT_OF_STOCK_CASH' : 'OUT_OF_STOCK_50K');
+        assert.equal(draws, 0);
+        if (isGold) assert.deepEqual(milestoneCounts(database, spin), { eligible_count: 1, gold_count: 0 });
+        assert.deepEqual(database.prepare('SELECT * FROM prizes WHERE code = ?').get(code), oldStock);
+        assert.equal(database.prepare("SELECT remaining_quantity FROM prizes WHERE code = 'MAYMAN2'").get().remaining_quantity, cash50.remaining_quantity - 1);
+        engine.undo(log.id);
+        assert.deepEqual(database.prepare("SELECT * FROM prizes WHERE code = 'MAYMAN2'").get(), cash50);
+        database.prepare('UPDATE prizes SET remaining_quantity = 1, total_quantity = used_quantity + 1 WHERE code = ?').run(code);
+        // An available prize does not require fallback stock.
+        database.prepare("UPDATE prizes SET remaining_quantity = 0, total_quantity = used_quantity WHERE code = 'MAYMAN2'").run();
+        engine.spin(entry);
+        assert.equal(latest(database).prize_code, code);
+        assert.equal(latest(database).decision_reason, isGold ? 'RANDOM_GOLD' : 'SCHEDULE');
+        if (isGold) assert.deepEqual(milestoneCounts(database, spin), { eligible_count: 1, gold_count: 1 });
+        close(database);
+      });
+      await check(`Hết ${code} và 50k: rollback toàn bộ`, () => {
+        const database = fixture();
+        if (code === 'NHI' || code === 'NHAT') prepareMilestone(database, spin);
+        else database.prepare('INSERT INTO phone_participants VALUES (?, ?)').run(phoneFor(1), spin - 1);
+        database.prepare("UPDATE prizes SET remaining_quantity = 0, total_quantity = used_quantity WHERE code IN (?, 'MAYMAN2')").run(code);
+        const entry = input(database);
+        rollback(database, () => createLottery(database).spin(entry), 'OUT_OF_STOCK');
+        close(database);
+      });
+    }
+    await check('Đồng thời fallback: chỉ một lượt nhận suất 50k cuối, lượt còn lại giữ mã', async () => {
+      const source = fixture();
+      source.prepare("UPDATE prizes SET remaining_quantity = 0, total_quantity = used_quantity WHERE code = 'CAOLON'").run();
+      source.prepare("UPDATE prizes SET remaining_quantity = 1, total_quantity = used_quantity + 1 WHERE code = 'MAYMAN2'").run();
+      const operations = [1, 2].map(number => {
+        source.prepare('INSERT INTO phone_participants VALUES (?, 5)').run(phoneFor(number));
+        return { input: input(source, phoneFor(number)) };
+      });
+      const file = path.join(directory, 'concurrent-fallback-50k.db');
+      await source.backup(file);
+      close(source);
+      const results = await parallel(file, operations);
+      assert.equal(results.filter(result => result.result?.success).length, 1);
+      assert.equal(results.filter(result => result.error === 'OUT_OF_STOCK').length, 1);
+      const database = new Database(file);
+      openDatabases.add(database);
+      assert.equal(database.prepare("SELECT remaining_quantity FROM prizes WHERE code = 'MAYMAN2'").get().remaining_quantity, 0);
+      assert.equal(database.prepare("SELECT COUNT(*) AS count FROM spin_logs WHERE prize_code = 'MAYMAN2' AND decision_reason = 'OUT_OF_STOCK_50K'").get().count, 1);
+      for (const [index, result] of results.entries()) {
+        const failed = result.error === 'OUT_OF_STOCK';
+        assert.equal(database.prepare('SELECT spin_count FROM phone_participants WHERE phone = ?').get(phoneFor(index + 1)).spin_count, failed ? 5 : 6);
+        assert.equal(database.prepare('SELECT status FROM lucky_codes WHERE code = ?').get(operations[index].input.entryCode).status, failed ? 'unused' : 'used');
+      }
+      close(database);
+    });
     const blockedAgencyCode = 'OTC.DL00020259';
     for (const milestone of [14, 25]) {
       const multiplier = 2;
@@ -350,7 +418,10 @@ async function main() {
         const goldCode = milestone === 14 ? 'NHI' : 'NHAT';
         const oldGold = database.prepare('SELECT * FROM prizes WHERE code = ?').get(goldCode);
         database.prepare('UPDATE prizes SET remaining_quantity = 0, total_quantity = used_quantity WHERE code = ?').run(cashCode);
+        const oldCash50 = database.prepare("SELECT * FROM prizes WHERE code = 'MAYMAN2'").get();
+        database.prepare("UPDATE prizes SET remaining_quantity = 0, total_quantity = used_quantity WHERE code = 'MAYMAN2'").run();
         rollback(database, () => engine.spin(entry), 'OUT_OF_STOCK');
+        database.prepare("UPDATE prizes SET remaining_quantity = ?, total_quantity = used_quantity + ? WHERE code = 'MAYMAN2'").run(oldCash50.remaining_quantity, oldCash50.remaining_quantity);
         database.prepare('UPDATE prizes SET remaining_quantity = 2, total_quantity = used_quantity + 2 WHERE code = ?').run(cashCode);
         engine.spin(entry);
         const blockedLog = latest(database);
@@ -501,7 +572,7 @@ async function main() {
         if (milestone === 25) seedMilestone(database, phoneFor(1), 14, 'MAYMAN2');
         const engine = createLottery(database, () => { throw new Error('Không được random'); });
         const entry = input(database);
-        const cashCode = milestone === 14 ? 'MAYMAN2' : 'MAYMAN1';
+        const cashCode = 'MAYMAN2';
         const goldCode = milestone === 14 ? 'NHI' : 'NHAT';
         database.prepare('UPDATE prizes SET remaining_quantity = 0, total_quantity = used_quantity WHERE code IN (?, ?)')
           .run(goldCode, cashCode);
@@ -554,7 +625,7 @@ async function main() {
         database.prepare('INSERT INTO phone_participants VALUES (?, 24) ON CONFLICT(phone) DO UPDATE SET spin_count = 24').run(phoneFor(1));
         database.prepare("UPDATE prizes SET remaining_quantity = 0, total_quantity = used_quantity WHERE code = 'NHAT'").run();
         createLottery(database, () => { throw new Error('Không được random'); }).spin(input(database));
-        assert.equal(latest(database).prize_code, 'MAYMAN1');
+        assert.equal(latest(database).prize_code, previous === 'MAYMAN2' ? 'MAYMAN2' : 'MAYMAN1');
         close(database);
       }
       const database = fixture();
@@ -980,7 +1051,7 @@ async function main() {
           assert.equal(latest(database, phoneFor(number)).decision_reason, 'AGENCY_GOLD_BLOCKED');
         }
         const normalLogs = [3, 4].map(number => latest(database, phoneFor(number)));
-        assert.deepEqual(normalLogs.map(log => log.prize_code).sort(), [goldCode, cashCode].sort());
+        assert.deepEqual(normalLogs.map(log => log.prize_code).sort(), [goldCode, 'MAYMAN2'].sort());
         assert.deepEqual(normalLogs.map(log => log.decision_a).sort(), [0, 1]);
         assert.deepEqual(milestoneCounts(database, milestone), { eligible_count: 2, gold_count: 1 });
         assert.equal(database.prepare('SELECT remaining_quantity FROM prizes WHERE code = ?').get(goldCode).remaining_quantity, 0);
@@ -1187,6 +1258,59 @@ async function main() {
         { milestone: 14, eligible_count: 1, gold_count: 0 },
         { milestone: 25, eligible_count: 1, gold_count: 1 },
       ]);
+      const old50 = db.prepare("SELECT remaining_quantity FROM prizes WHERE code = 'MAYMAN2'").get().remaining_quantity;
+      db.prepare("UPDATE prizes SET remaining_quantity = 0, total_quantity = used_quantity WHERE code = 'MAYMAN2'").run();
+      const failedEntry = input(db, phoneFor(999));
+      const beforeFailed = snapshot(db);
+      const failed = await request('/api/spin', 'POST', failedEntry);
+      assert.equal(failed.status, 409);
+      assert.equal(failed.data.success, false);
+      assert.equal(failed.data.error, 'OUT_OF_STOCK');
+      assert.equal(failed.data.message, 'Quà tặng hiện đã hết. Mã dự thưởng của bạn chưa được sử dụng và lượt quay chưa bị trừ. Vui lòng liên hệ đại lý hoặc ban tổ chức để được hỗ trợ và thử lại sau.');
+      assert.equal(snapshot(db), beforeFailed);
+      db.prepare("UPDATE prizes SET remaining_quantity = ?, total_quantity = used_quantity + ? WHERE code = 'MAYMAN2'").run(old50, old50);
+      db.prepare('INSERT INTO phone_participants VALUES (?, 2)').run(phoneFor(999));
+      db.prepare("UPDATE prizes SET remaining_quantity = 0, total_quantity = used_quantity WHERE code = 'MAYMAN1'").run();
+      const fallback = await request('/api/spin', 'POST', failedEntry);
+      assert.equal(fallback.status, 200);
+      assert.equal(fallback.data.prize.id, db.prepare("SELECT id FROM prizes WHERE code = 'MAYMAN2'").get().id);
+      assert.equal(latest(db, phoneFor(999)).decision_reason, 'OUT_OF_STOCK_50K');
+      const fallbackExport = await dispatch('/api/admin/export-spins', 'GET', undefined, true);
+      const fallbackWorkbook = xlsx.read(fallbackExport.body, { type: 'buffer' });
+      const fallbackRows = xlsx.utils.sheet_to_json(fallbackWorkbook.Sheets[fallbackWorkbook.SheetNames[0]]);
+      const exportedFallback = fallbackRows.find(row => Object.values(row).includes(failedEntry.entryCode));
+      assert(exportedFallback);
+      assert(Object.values(exportedFallback).includes('MAYMAN2'));
+    });
+    await check('UI hết kho: thông báo tiếng Việt, giữ dữ liệu nhập và bật lại nút quay', async () => {
+      const message = 'Quà tặng hiện đã hết. Mã dự thưởng của bạn chưa được sử dụng và lượt quay chưa bị trừ. Vui lòng liên hệ đại lý hoặc ban tổ chức để được hỗ trợ và thử lại sau.';
+      const fields = Object.fromEntries(Object.entries({ phone: '0900000001', adress: 'Địa chỉ kiểm thử', 'entry-code': 'TESTONLY', 'bank-name': 'Ngân hàng kiểm thử', 'bank-account-number': '00123456789', 'bank-account-holder-name': 'Nguyễn Thị Ánh' }).map(([key, value]) => [key, { value }]));
+      const before = JSON.stringify(fields);
+      const button = { textContent: 'QUAY THƯỞNG', disabled: false };
+      let handler;
+      const alerts = [];
+      const source = fs.readFileSync(path.join(__dirname, '..', 'main.js'), 'utf8');
+      const start = source.indexOf('submitForm.addEventListener("submit",');
+      const end = source.indexOf('// 3. Xử lý Tra Cứu', start);
+      assert(start >= 0 && end > start);
+      const context = createContext({
+        document: { getElementById: id => fields[id] },
+        submitForm: { addEventListener: (event, callback) => { assert.equal(event, 'submit'); handler = callback; }, querySelector: () => button },
+        provinceHidden: { value: 'Hà Nội' }, agencyHidden: { value: 'DL001' },
+        currentAgencies: [{ code: 'DL001', name: 'Đại lý kiểm thử' }],
+        apiFetch: async () => ({ json: async () => ({ success: false, error: 'OUT_OF_STOCK', message }) }),
+        showAlert: (...args) => alerts.push(args),
+        console: { error: error => { throw error; } },
+      });
+      new Script(source.slice(start, end)).runInContext(context);
+      await handler({ preventDefault() {} });
+      assert.equal(alerts.length, 1);
+      assert.equal(alerts[0][0], 'Tạm thời chưa thể quay thưởng');
+      assert.equal(alerts[0][1], message);
+      assert(!alerts[0].join(' ').includes('OUT_OF_STOCK'));
+      assert.equal(JSON.stringify(fields), before);
+      assert.equal(button.disabled, false);
+      assert.equal(button.textContent, 'QUAY THƯỞNG');
     });
     await check('Tài liệu và mẫu Apps Script khớp giao diện/code', () => {
       const source = fs.readFileSync(path.join(__dirname, '..', 'docs', 'google-sheets-sync.gs'), 'utf8').trim();
