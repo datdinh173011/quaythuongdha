@@ -1,5 +1,7 @@
 # Quay thưởng DHA — BioAmicus
 
+> **Chương trình đã kết thúc (26/11/2026).** Form quay được phủ thông báo và vô hiệu hóa. `POST /api/spin` luôn trả HTTP 410 / `PROGRAM_ENDED`, không phát thưởng hoặc tiêu mã. Tra cứu lịch sử, quản trị và đồng bộ tiếp tục hoạt động. Triển khai bằng cập nhật source và restart service; không migration/reset dữ liệu, không có công tắc tự mở lại.
+
 > Bản cập nhật ngân hàng cần migration `bank-details-v1`, danh mục được duyệt và bộ ảnh mới trước khi phát hành. Xem [hướng dẫn triển khai và đầu vào còn thiếu](docs/bank-details-release.md). Không chạy migration khi server/worker còn ghi dữ liệu.
 
 Ứng dụng quay thưởng bằng mã dự thưởng, gồm giao diện người tham gia và trang quản trị. Một tiến trình Node.js phục vụ cả giao diện, API và tác vụ đồng bộ Google Sheets; dữ liệu được lưu trong SQLite trên máy chạy ứng dụng.

@@ -1,5 +1,7 @@
 # Luật quay thưởng DHA — theo SĐT
 
+> **Đã đóng chương trình từ bản cập nhật 26/11/2026:** API công khai `POST /api/spin` trả HTTP 410 với `{ success: false, error: "PROGRAM_ENDED", message: "Chương trình đã kết thúc. Cảm ơn bạn đã tham gia. Bạn vẫn có thể tra cứu lịch sử quay thưởng bên dưới." }` trước khi xử lý body hoặc gọi bộ máy thưởng. Form bị khóa và phủ thông báo, không tải danh mục phục vụ quay. Tra cứu, admin, hủy lịch sử và đồng bộ vẫn hoạt động. Các quy tắc thưởng dưới đây được giữ để đối soát lịch sử và kiểm thử nội bộ; không có migration, reset hoặc cơ chế tự mở lại. Lượt đã commit trước khi đóng vẫn được giữ nguyên.
+
 Phiên bản luật: **phone-v3**. Cập nhật công thức: **2026-11-09**. Cập nhật hết kho: **2026-11-24**.
 
 Tài liệu mô tả code hiện tại, không xác nhận database vận hành đã chuyển đổi. Không có kỳ thưởng; SĐT chuẩn hóa là khóa người tham gia duy nhất. Phiên bản luật chỉ phục vụ kiểm toán, không chia/reset bộ đếm.

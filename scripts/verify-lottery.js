@@ -1199,13 +1199,14 @@ async function main() {
         assert(rule.includes(blockedAgencyCode) && rule.includes('không tính vào a/b'));
       }
       const entry = input(db);
-      const firstResponse = (await request('/api/spin', 'POST', entry)).data;
+      const fixtureEngine = createLottery(db);
+      const firstResponse = fixtureEngine.spin(entry);
       assert.equal(firstResponse.cycleNumber, 1);
       assert.equal(Object.hasOwn(firstResponse, 'campaignId'), false);
       const first = latest(db);
       assert.equal(first.rule_version, 'phone-v3');
       const secondEntry = input(db, phoneFor(1), 'DL002');
-      await request('/api/spin', 'POST', secondEntry);
+      fixtureEngine.spin(secondEntry);
       const second = latest(db);
       const filtered = await request(`/api/admin/spins?q=${entry.entryCode}`, 'GET', undefined, true);
       assert.equal(filtered.data.spins[0].canUndo, false);
@@ -1226,7 +1227,7 @@ async function main() {
       assert.equal(history.data.history[0].bank_name, entry.bankName);
       assert.equal(history.data.history[0].bank_account_number, entry.bankAccountNumber);
       assert.equal(history.data.history[0].bank_account_holder_name, entry.bankAccountHolderName);
-      assert.equal((await request('/api/spin', 'POST', secondEntry)).data.spinNumber, 2);
+      assert.equal(fixtureEngine.spin(secondEntry).spinNumber, 2);
       assert.equal((await request('/api/admin/stats', 'GET', undefined, true)).data.stats.participantCount, 1);
       const prize = db.prepare("SELECT * FROM prizes WHERE code = 'NHAT'").get();
       assert.equal((await request(`/api/admin/prizes/${prize.id}`, 'DELETE', undefined, true)).status, 409);
@@ -1258,59 +1259,108 @@ async function main() {
         { milestone: 14, eligible_count: 1, gold_count: 0 },
         { milestone: 25, eligible_count: 1, gold_count: 1 },
       ]);
-      const old50 = db.prepare("SELECT remaining_quantity FROM prizes WHERE code = 'MAYMAN2'").get().remaining_quantity;
-      db.prepare("UPDATE prizes SET remaining_quantity = 0, total_quantity = used_quantity WHERE code = 'MAYMAN2'").run();
-      const failedEntry = input(db, phoneFor(999));
-      const beforeFailed = snapshot(db);
-      const failed = await request('/api/spin', 'POST', failedEntry);
-      assert.equal(failed.status, 409);
-      assert.equal(failed.data.success, false);
-      assert.equal(failed.data.error, 'OUT_OF_STOCK');
-      assert.equal(failed.data.message, 'Quà tặng hiện đã hết. Mã dự thưởng của bạn chưa được sử dụng và lượt quay chưa bị trừ. Vui lòng liên hệ đại lý hoặc ban tổ chức để được hỗ trợ và thử lại sau.');
-      assert.equal(snapshot(db), beforeFailed);
-      db.prepare("UPDATE prizes SET remaining_quantity = ?, total_quantity = used_quantity + ? WHERE code = 'MAYMAN2'").run(old50, old50);
-      db.prepare('INSERT INTO phone_participants VALUES (?, 2)').run(phoneFor(999));
-      db.prepare("UPDATE prizes SET remaining_quantity = 0, total_quantity = used_quantity WHERE code = 'MAYMAN1'").run();
-      const fallback = await request('/api/spin', 'POST', failedEntry);
-      assert.equal(fallback.status, 200);
-      assert.equal(fallback.data.prize.id, db.prepare("SELECT id FROM prizes WHERE code = 'MAYMAN2'").get().id);
-      assert.equal(latest(db, phoneFor(999)).decision_reason, 'OUT_OF_STOCK_50K');
-      const fallbackExport = await dispatch('/api/admin/export-spins', 'GET', undefined, true);
-      const fallbackWorkbook = xlsx.read(fallbackExport.body, { type: 'buffer' });
-      const fallbackRows = xlsx.utils.sheet_to_json(fallbackWorkbook.Sheets[fallbackWorkbook.SheetNames[0]]);
-      const exportedFallback = fallbackRows.find(row => Object.values(row).includes(failedEntry.entryCode));
-      assert(exportedFallback);
-      assert(Object.values(exportedFallback).includes('MAYMAN2'));
+      function dispatchRaw(url, method = 'POST', rawBody, contentType) {
+        return new Promise((resolve, reject) => {
+          const socket = new Duplex({ read() {}, write(chunk, encoding, callback) { callback(); } });
+          const request = new IncomingMessage(socket);
+          request.method = method; request.url = url;
+          request.headers = { host: 'verification.invalid' };
+          if (rawBody !== undefined) {
+            const data = Buffer.from(rawBody);
+            if (contentType) request.headers['content-type'] = contentType;
+            request.headers['content-length'] = String(data.length);
+            request.push(data);
+          }
+          request.push(null);
+          const response = new ServerResponse(request);
+          response.assignSocket(socket);
+          const chunks = [];
+          const write = response.write.bind(response); const end = response.end.bind(response);
+          response.write = (chunk, ...args) => { if (chunk) chunks.push(Buffer.from(chunk)); return write(chunk, ...args); };
+          response.end = (chunk, ...args) => { if (chunk) chunks.push(Buffer.from(chunk)); return end(chunk, ...args); };
+          response.once('error', reject);
+          response.once('finish', () => {
+            resolve({ status: response.statusCode, data: JSON.parse(Buffer.concat(chunks).toString()) });
+            socket.destroy();
+          });
+          app.handle(request, response);
+        });
+      }
+      const validEntry = input(db, phoneFor(999));
+      const beforeClosed = snapshot(db);
+      const expectedEnded = {
+        success: false,
+        error: 'PROGRAM_ENDED',
+        message: 'Chương trình đã kết thúc. Cảm ơn bạn đã tham gia. Bạn vẫn có thể tra cứu lịch sử quay thưởng bên dưới.',
+      };
+      for (const payload of [validEntry, { ...validEntry, ownerName: 'Tab cũ' }, {}, null, undefined, { entryCode: validEntry.entryCode }, { phone: 'invalid' }]) {
+        for (const endpoint of ['/api/spin', '/api/spin/']) {
+          const response = await request(endpoint, 'POST', payload);
+          assert.equal(response.status, 410);
+          assert.deepEqual(response.data, expectedEnded);
+          assert.equal(snapshot(db), beforeClosed);
+        }
+      }
+      for (const [rawBody, contentType] of [
+        ['{broken-json', 'application/json'],
+        ['phone=0900000999&entryCode=' + validEntry.entryCode, 'application/x-www-form-urlencoded'],
+      ]) {
+        const response = await dispatchRaw('/api/spin', 'POST', rawBody, contentType);
+        assert.equal(response.status, 410);
+        assert.deepEqual(response.data, expectedEnded);
+        assert.equal(snapshot(db), beforeClosed);
+      }
+      assert.equal((await request('/api/history?phone=%2B84900000001')).data.count, 2);
     });
-    await check('UI hết kho: thông báo tiếng Việt, giữ dữ liệu nhập và bật lại nút quay', async () => {
-      const message = 'Quà tặng hiện đã hết. Mã dự thưởng của bạn chưa được sử dụng và lượt quay chưa bị trừ. Vui lòng liên hệ đại lý hoặc ban tổ chức để được hỗ trợ và thử lại sau.';
-      const fields = Object.fromEntries(Object.entries({ phone: '0900000001', adress: 'Địa chỉ kiểm thử', 'entry-code': 'TESTONLY', 'bank-name': 'Ngân hàng kiểm thử', 'bank-account-number': '00123456789', 'bank-account-holder-name': 'Nguyễn Thị Ánh' }).map(([key, value]) => [key, { value }]));
-      const before = JSON.stringify(fields);
-      const button = { textContent: 'QUAY THƯỞNG', disabled: false };
+    await check('UI đóng chương trình: lớp phủ, form khóa HTML, không gọi API khi tải/submit', () => {
+      const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+      const css = fs.readFileSync(path.join(__dirname, '..', 'style.css'), 'utf8');
+      const regionMatch = html.match(/<section class="campaign-closed-region"[\s\S]*?<\/section>/);
+      assert(regionMatch, 'Thiếu vùng đóng chương trình');
+      const regionHtml = regionMatch[0];
+      assert(regionHtml.includes('class="campaign-inactive-content" inert aria-hidden="true"'));
+      assert(regionHtml.includes('<div class="header">'));
+      assert(regionHtml.includes('<form action="submit" id="submit-form">'));
+      const overlayMatch = regionHtml.match(/<div class="campaign-ended-overlay"[\s\S]*?<\/div>/);
+      assert(overlayMatch && overlayMatch[0].includes('CHƯƠNG TRÌNH ĐÃ KẾT THÚC'));
+      assert(!overlayMatch[0].includes('<button'));
+      const formControls = [...regionHtml.matchAll(/<(input|button)\b([^>]*)>/g)];
+      assert.equal(formControls.length, 12);
+      assert(formControls.every(([, , attrs]) => /\bdisabled\b/.test(attrs)));
+      const afterRegionHtml = html.slice(html.indexOf(regionHtml) + regionHtml.length);
+      assert(afterRegionHtml.includes('<div class="search">') && afterRegionHtml.includes('id="search-form"'));
+      assert(css.includes('.campaign-ended-overlay') && css.includes('backdrop-filter: blur(') && css.includes('#7479a6'));
+      assert(css.includes('.campaign-inactive-content') && css.includes('pointer-events: none'));
+
       let handler;
+      let prevented = false;
       const alerts = [];
       const source = fs.readFileSync(path.join(__dirname, '..', 'main.js'), 'utf8');
       const start = source.indexOf('submitForm.addEventListener("submit",');
       const end = source.indexOf('// 3. Xử lý Tra Cứu', start);
       assert(start >= 0 && end > start);
       const context = createContext({
-        document: { getElementById: id => fields[id] },
-        submitForm: { addEventListener: (event, callback) => { assert.equal(event, 'submit'); handler = callback; }, querySelector: () => button },
-        provinceHidden: { value: 'Hà Nội' }, agencyHidden: { value: 'DL001' },
-        currentAgencies: [{ code: 'DL001', name: 'Đại lý kiểm thử' }],
-        apiFetch: async () => ({ json: async () => ({ success: false, error: 'OUT_OF_STOCK', message }) }),
+        submitForm: { addEventListener: (event, callback) => { assert.equal(event, 'submit'); handler = callback; } },
+        apiFetch: () => { throw new Error('Form đóng không được gửi API'); },
+        openRewardModal: () => { throw new Error('Không được mở kết quả'); },
         showAlert: (...args) => alerts.push(args),
-        console: { error: error => { throw error; } },
       });
       new Script(source.slice(start, end)).runInContext(context);
-      await handler({ preventDefault() {} });
+      handler({ preventDefault() { prevented = true; } });
+      assert(prevented);
       assert.equal(alerts.length, 1);
-      assert.equal(alerts[0][0], 'Tạm thời chưa thể quay thưởng');
-      assert.equal(alerts[0][1], message);
-      assert(!alerts[0].join(' ').includes('OUT_OF_STOCK'));
-      assert.equal(JSON.stringify(fields), before);
-      assert.equal(button.disabled, false);
-      assert.equal(button.textContent, 'QUAY THƯỞNG');
+      assert.equal(alerts[0][0], 'Chương trình đã kết thúc');
+
+      let readyHandler;
+      const readyStart = source.indexOf('// Khởi chạy khi load xong DOM');
+      assert(readyStart >= 0);
+      new Script(source.slice(readyStart)).runInContext(createContext({
+        document: { addEventListener: (event, callback) => { assert.equal(event, 'DOMContentLoaded'); readyHandler = callback; } },
+        loadProvinces: () => { throw new Error('Không được tải tỉnh/thành khi form đã đóng'); },
+        loadBanks: () => { throw new Error('Không được tải ngân hàng khi form đã đóng'); },
+        apiFetch: () => { throw new Error('Không được gọi API khi tải trang'); },
+      }));
+      readyHandler();
     });
     await check('Tài liệu và mẫu Apps Script khớp giao diện/code', () => {
       const source = fs.readFileSync(path.join(__dirname, '..', 'docs', 'google-sheets-sync.gs'), 'utf8').trim();

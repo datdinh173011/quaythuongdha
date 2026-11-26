@@ -795,3 +795,37 @@
   margin-bottom: 20px;
   line-height: 1.4;
 }
+
+/* Keep history lookup outside the closed spin area. */
+.campaign-closed-region {
+  position: relative;
+  isolation: isolate;
+}
+.campaign-inactive-content {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  pointer-events: none;
+  user-select: none;
+}
+.campaign-ended-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px 12px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.84);
+  backdrop-filter: blur(3px);
+  -webkit-backdrop-filter: blur(3px);
+  text-align: center;
+}
+.campaign-ended-overlay p {
+  color: #7479a6;
+  font-size: clamp(1rem, 1.25vw, 1.15rem);
+  font-weight: 900;
+  letter-spacing: 0.3px;
+  line-height: 1.5;
+}
