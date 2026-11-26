@@ -38,6 +38,13 @@ const upload = multer({ storage });
 const uploadMemory = multer({ storage: multer.memoryStorage() });
 
 app.use(cors());
+
+// Reject spins before body parsing, including requests from old tabs.
+app.post('/api/spin', (req, res) => res.status(410).json({
+  success: false,
+  error: 'PROGRAM_ENDED',
+  message: 'Chương trình đã kết thúc. Cảm ơn bạn đã tham gia. Bạn vẫn có thể tra cứu lịch sử quay thưởng bên dưới.',
+}));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
@@ -129,19 +136,6 @@ app.get('/api/banks', (req, res) => {
     res.json({ success: true, banks });
   } catch {
     res.status(503).json({ success: false, message: 'Danh mục ngân hàng chưa được cấu hình.' });
-  }
-});
-
-// THỰC HIỆN QUAY THƯỞNG
-app.post('/api/spin', (req, res) => {
-  try {
-    const payload = { ...req.body };
-    if (!payload.bankName) payload.bankName = 'Ngân hàng TMCP Ngoại thương Việt Nam (Vietcombank)';
-    if (!payload.bankAccountNumber) payload.bankAccountNumber = '0000000000';
-    if (!payload.bankAccountHolderName) payload.bankAccountHolderName = payload.ownerName || 'Chưa cập nhật';
-    res.json(lottery.spin(payload));
-  } catch (err) {
-    respondLotteryError(res, err);
   }
 });
 

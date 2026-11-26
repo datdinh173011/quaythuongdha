@@ -60,6 +60,7 @@ const alertMessage = document.getElementById("alert-message");
 let allProvinces = [];
 let currentAgencies = [];
 let allBanks = [];
+const isSpinFormClosed = Boolean(submitForm && submitForm.closest(".campaign-closed-region"));
 
 // Hàm loại bỏ dấu tiếng Việt để tìm kiếm thông minh (search không dấu)
 function removeVietnameseTones(str) {
@@ -140,7 +141,7 @@ function selectBank(bank) {
   if (bankDropdown) bankDropdown.classList.remove("active");
 }
 
-if (bankInput) {
+if (bankInput && !isSpinFormClosed) {
   bankInput.addEventListener("focus", () => {
     renderBankDropdown(bankInput.value);
   });
@@ -214,25 +215,27 @@ async function selectProvince(provinceName) {
 }
 
 // Sự kiện người dùng gõ / click ô Tỉnh/Thành
-provinceInput.addEventListener("focus", () => {
-  renderProvinceDropdown(provinceInput.value);
-});
-provinceInput.addEventListener("input", () => {
-  provinceHidden.value = ""; // Chưa chốt lựa chọn
-  renderProvinceDropdown(provinceInput.value);
-});
-provinceInput.addEventListener("blur", () => {
-  setTimeout(() => {
-    provinceDropdown.classList.remove("active");
-    // Nếu người dùng gõ đúng y nguyên tên tỉnh thì tự chọn
-    if (!provinceHidden.value && provinceInput.value) {
-      const match = allProvinces.find(p => p.toLowerCase() === provinceInput.value.trim().toLowerCase());
-      if (match) {
-        selectProvince(match);
+if (provinceInput && !isSpinFormClosed) {
+  provinceInput.addEventListener("focus", () => {
+    renderProvinceDropdown(provinceInput.value);
+  });
+  provinceInput.addEventListener("input", () => {
+    provinceHidden.value = ""; // Chưa chốt lựa chọn
+    renderProvinceDropdown(provinceInput.value);
+  });
+  provinceInput.addEventListener("blur", () => {
+    setTimeout(() => {
+      provinceDropdown.classList.remove("active");
+      // Nếu người dùng gõ đúng y nguyên tên tỉnh thì tự chọn
+      if (!provinceHidden.value && provinceInput.value) {
+        const match = allProvinces.find(p => p.toLowerCase() === provinceInput.value.trim().toLowerCase());
+        if (match) {
+          selectProvince(match);
+        }
       }
-    }
-  }, 200);
-});
+    }, 200);
+  });
+}
 
 // Render dropdown Đại Lý theo từ khóa gõ
 function renderAgencyDropdown(filterText = "") {
@@ -273,140 +276,26 @@ function selectAgency(agency) {
   agencyDropdown.classList.remove("active");
 }
 
-agencyInput.addEventListener("focus", () => {
-  renderAgencyDropdown(agencyInput.value);
-});
-agencyInput.addEventListener("input", () => {
-  agencyHidden.value = "";
-  renderAgencyDropdown(agencyInput.value);
-});
-agencyInput.addEventListener("blur", () => {
-  setTimeout(() => {
-    agencyDropdown.classList.remove("active");
-  }, 200);
-});
+if (agencyInput && !isSpinFormClosed) {
+  agencyInput.addEventListener("focus", () => {
+    renderAgencyDropdown(agencyInput.value);
+  });
+  agencyInput.addEventListener("input", () => {
+    agencyHidden.value = "";
+    renderAgencyDropdown(agencyInput.value);
+  });
+  agencyInput.addEventListener("blur", () => {
+    setTimeout(() => {
+      agencyDropdown.classList.remove("active");
+    }, 200);
+  });
+}
 
 
 // 2. Xử lý Quay Thưởng
-submitForm.addEventListener("submit", async function (event) {
+submitForm.addEventListener("submit", function (event) {
   event.preventDefault();
-
-  const province = provinceHidden.value;
-  const agencyVal = agencyHidden.value;
-  const phone = document.getElementById("phone").value.trim();
-  const address = document.getElementById("adress").value.trim();
-  const entryCode = document.getElementById("entry-code").value.trim();
-  const bankNameInput = document.getElementById("bank-name");
-  let bankName = bankNameInput ? bankNameInput.value.trim() : '';
-  if (!bankName && bankInput && bankInput.value.trim()) {
-    const valClean = removeVietnameseTones(bankInput.value.trim());
-    const match = allBanks.find(b =>
-      removeVietnameseTones(b.code).toLowerCase() === valClean.toLowerCase() ||
-      removeVietnameseTones(b.name).toLowerCase() === valClean.toLowerCase()
-    );
-    if (match) {
-      bankName = match.name;
-      if (bankHidden) bankHidden.value = bankName;
-      bankInput.value = match.name;
-    }
-  }
-  const bankAccountInput = document.getElementById("bank-account-number");
-  const bankAccountNumber = bankAccountInput ? bankAccountInput.value.trim() : '';
-  const bankHolderInput = document.getElementById("bank-account-holder-name");
-  const bankAccountHolderName = bankHolderInput ? bankHolderInput.value.trim() : '';
-
-  if (!province) {
-    showAlert("Thông Báo", "Vui lòng chọn hoặc gõ tìm kiếm Tỉnh/thành của bạn.", "⚠️");
-    provinceInput.focus();
-    return;
-  }
-  if (!agencyVal) {
-    showAlert("Thông Báo", "Vui lòng chọn hoặc gõ tìm kiếm Tên đại lý từ danh sách.", "⚠️");
-    agencyInput.focus();
-    return;
-  }
-  if (!bankName) {
-    showAlert("Thông Báo", "Vui lòng chọn hoặc gõ tìm kiếm Ngân hàng từ danh sách.", "⚠️");
-    if (bankInput) bankInput.focus();
-    return;
-  }
-  if (!bankAccountNumber || !bankAccountHolderName) {
-    showAlert("Thông Báo", "Vui lòng nhập đầy đủ số tài khoản và tên chủ tài khoản ngân hàng!", "⚠️");
-    return;
-  }
-  if (!phone || !address || !entryCode) {
-    showAlert("Thông Báo", "Vui lòng nhập đầy đủ các trường thông tin!", "⚠️");
-    return;
-  }
-
-  // Lấy tên đại lý từ danh sách hiện tại
-  const selectedAgencyObj = currentAgencies.find(a => (a.code === agencyVal || String(a.id) === agencyVal));
-  const agencyName = selectedAgencyObj ? selectedAgencyObj.name : agencyInput.value;
-  const agencyCode = selectedAgencyObj ? selectedAgencyObj.code : agencyVal;
-
-  const btnSubmit = submitForm.querySelector("button[type='submit']");
-  const originalBtnText = btnSubmit.textContent;
-  btnSubmit.disabled = true;
-  btnSubmit.textContent = "ĐANG QUAY THƯỞNG...";
-
-  try {
-    const res = await apiFetch('/api/spin', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        province,
-        agencyCode,
-        agencyName,
-        phone,
-        address,
-        entryCode,
-        bankName,
-        bankAccountNumber,
-        bankAccountHolderName
-      })
-    });
-
-    const result = await res.json();
-
-    if (!result.success) {
-      const title = result.error === 'OUT_OF_STOCK' ? 'Tạm thời chưa thể quay thưởng' : 'Không Thể Quay Thưởng';
-      showAlert(title, result.message || "Đã có lỗi xảy ra.", "❌");
-      return;
-    }
-
-    // Hiển thị kết quả trúng thưởng
-    if (rewardTierName) {
-      const tier = result.prize.tier || result.prize.prize_tier || "GIẢI THƯỞNG";
-      rewardTierName.textContent = String(tier).toUpperCase();
-    }
-    rewardResultName.textContent = result.prize.name;
-    rewardResultImg.src = assetUrl(result.prize.image_url, '/img/Giải Nhất.png');
-    rewardAgencyText.textContent = result.agencyName;
-    rewardCodeText.textContent = result.entryCode;
-    
-    if (result.serialNumber) {
-      rewardSerialText.textContent = result.serialNumber;
-      rewardSerialRow.style.display = 'flex';
-    } else {
-      rewardSerialRow.style.display = 'none';
-    }
-    
-    rewardTimeText.textContent = formatSpinTime(result.spinTime);
-
-    // Mở popup kết quả và bắn pháo hoa Confetti
-    openRewardModal();
-    fireConfetti();
-
-    // Reset ô mã dự thưởng để tránh bấm lại
-    document.getElementById("entry-code").value = "";
-
-  } catch (err) {
-    console.error("Lỗi khi gửi yêu cầu quay thưởng:", err);
-    showAlert("Lỗi Kết Nối", "Không thể kết nối đến máy chủ. Vui lòng thử lại!", "❌");
-  } finally {
-    btnSubmit.disabled = false;
-    btnSubmit.textContent = originalBtnText;
-  }
+  showAlert('Chương trình đã kết thúc', 'Chương trình đã kết thúc. Cảm ơn bạn đã tham gia. Bạn vẫn có thể tra cứu lịch sử quay thưởng bên dưới.', 'ℹ️');
 });
 
 // 3. Xử lý Tra Cứu Lịch Sử Quay Thưởng
@@ -548,6 +437,5 @@ function fireConfetti() {
 
 // Khởi chạy khi load xong DOM
 document.addEventListener("DOMContentLoaded", () => {
-  loadProvinces();
-  loadBanks();
+  // Chương trình đã kết thúc: không tải danh mục cho form quay đã khóa.
 });
